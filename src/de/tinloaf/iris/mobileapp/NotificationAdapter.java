@@ -1,8 +1,11 @@
 package de.tinloaf.iris.mobileapp;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.os.AsyncTask;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,21 +15,21 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import de.tinloaf.iris.mobileapp.data.DatabaseHelper;
 
-public class NotificationAdapter extends ArrayAdapter<Notification> {
+public class NotificationAdapter extends ArrayAdapter<NotificationData> {
 	private Activity activity;
     private int layoutResourceId;   
-    private ArrayList<Notification> data = null;
+    private ArrayList<NotificationData> data = null;
     private DatabaseHelper dbHelper;
     
     public NotificationAdapter(Activity activity, int layoutResourceId, 
-    		ArrayList<Notification> data, DatabaseHelper dbHelper) {
+    		ArrayList<NotificationData> data, DatabaseHelper dbHelper) {
         super(activity, layoutResourceId, data);
         this.layoutResourceId = layoutResourceId;
         this.activity = activity;
         this.data = data;
         this.dbHelper = dbHelper;
     }
-
+    
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
         View row = convertView;
@@ -39,10 +42,12 @@ public class NotificationAdapter extends ArrayAdapter<Notification> {
            
             holder = new NotificationHolder();
             holder.imgIcon = (ImageView)row.findViewById(R.id.imgIcon);
+            holder.imgIcon.setImageResource(R.drawable.ic_launcher);
             holder.txtTitle = (TextView)row.findViewById(R.id.txtTitle);
             holder.txtDestr = (TextView)row.findViewById(R.id.txtDestruction);
-            holder.txtAttacker = (TextView)row.findViewById(R.id.txtAttacker);
-           
+            holder.txtDate = (TextView)row.findViewById(R.id.txtDate);
+            //holder.txtAttacker = (TextView)row.findViewById(R.id.txtAttacker);
+            
             row.setTag(holder);
         }
         else
@@ -51,17 +56,24 @@ public class NotificationAdapter extends ArrayAdapter<Notification> {
         }
        
         
-        Notification notification = data.get(position);
+        NotificationData notification = data.get(position);
         holder.txtTitle.setText(notification.getPortalTitle());
         holder.txtDestr.setText(notification.getDestrString());
-        holder.txtAttacker.setText(notification.getAttacker());
-        holder.imgIcon.setImageResource(R.drawable.ic_launcher);
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
+        holder.txtDate.setText(sdf.format(notification.getDate()));
+        //holder.txtAttacker.setText(notification.getAttacker());
+        //holder.imgIcon.setImageResource(R.drawable.ic_launcher);
         
         Log.v("NA", "Returning a View");
         
+        // First, try to get the cached image on this thread..
+        Bitmap picture = PortalImageLoader.getCachedImage(notification.getPortal(), this.dbHelper, this.getContext());
+        
         PortalImageLoader portalImageLoader = new PortalImageLoader(holder.imgIcon, notification.getPortal(), 
         		this.dbHelper, this.getContext());
+        Log.v("NA", "Executing PIL for " + notification.getPortalTitle() + "...");
         portalImageLoader.execute();
+        
         return row;
     }
    
@@ -70,6 +82,7 @@ public class NotificationAdapter extends ArrayAdapter<Notification> {
         ImageView imgIcon;
         TextView txtTitle;
         TextView txtDestr;
-        TextView txtAttacker;
+        TextView txtDate;
+        //TextView txtAttacker;
     }
 }

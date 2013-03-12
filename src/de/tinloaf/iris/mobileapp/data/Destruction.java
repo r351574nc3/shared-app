@@ -4,17 +4,29 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import java.util.*;
 
+import com.j256.ormlite.field.DatabaseField;
+
 public class Destruction implements Parcelable {
 
 	public static final int KIND_RESONATOR = 1;
 	public static final int KIND_LINK = 2;
-	public static final int KIND_MOD = 3;
+	public static final int KIND_FIELD = 3;
+	public static final int KIND_MOD = 4;
 	
+	@DatabaseField(generatedId = true)
+    public Integer id;
+	
+	@DatabaseField
 	public int portalId;
+	@DatabaseField
 	public int portalEndId;
+	@DatabaseField
 	public int kind;
+	@DatabaseField
 	public String attacker;
+	@DatabaseField
 	public Date time;
+	@DatabaseField
 	public int count;
 	
 	public Destruction() {

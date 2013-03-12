@@ -40,6 +40,8 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 		this.portal = portal;
 		this.databaseHelper = helper;
 		this.ctx = ctx;
+		
+		Log.v("PIL", "Created");
 	}
 	
 	private InputStream openHttpConnection(String urlString) throws IOException
@@ -81,11 +83,12 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
         return bitmap;               
     }
 	
-	private Bitmap getCachedImage() {
+	public static Bitmap getCachedImage(SavedPortal portal, DatabaseHelper dbHelper, Context ctx) {
 		try {
-			Dao<SavedPortalImage, SavedPortal> portalImageDao = this.databaseHelper.getPortalImageDao();
+			Log.v("PIL", "Querying Cache..");
+			Dao<SavedPortalImage, SavedPortal> portalImageDao = dbHelper.getPortalImageDao();
 			
-			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", this.portal);
+			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", portal);
 			if (portalImageList.size() == 0) {
 				return null;
 			}
@@ -98,7 +101,7 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 				return null;
 			}
 			
-			File myDir = this.ctx.getExternalFilesDir(null);
+			File myDir = ctx.getExternalFilesDir(null);
 			String fileName = CommonUtilities.PORTAL_IMAGE_CACHE_DIR + "/" + portalImage.imgPath;
 			File portalImageFile = new File(myDir, fileName);
 			if (!portalImageFile.exists()) {
@@ -123,12 +126,13 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 	
 	private void cachePicture(Bitmap picture) {
 		try {
+			Log.v("PIL", "Caching...");
 			Dao<SavedPortalImage, SavedPortal> portalImageDao = this.databaseHelper.getPortalImageDao();
 			
-			if (! portalImageDao.idExists(this.portal)) {
+			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", this.portal);
+			if (portalImageList.size() > 0) {
 				return;
 			}
-			
 			
 			// OK, check external storage availabilty
 			String state = Environment.getExternalStorageState();
@@ -136,7 +140,6 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 				return;
 			}
 
-			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", this.portal);
 			SavedPortalImage portalImage = null;
 			if (portalImageList.size() != 0) {
 				portalImage = portalImageList.get(0);
@@ -149,8 +152,10 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 			}
 			
 			File myDir = this.ctx.getExternalFilesDir(null);
-			String fileName = CommonUtilities.PORTAL_IMAGE_CACHE_DIR + "/" + portalImage.imgPath;
-			File portalImageFile = new File(myDir, fileName);
+			File cacheDir = new File(myDir, CommonUtilities.PORTAL_IMAGE_CACHE_DIR);
+			cacheDir.mkdirs();
+			File portalImageFile = new File(cacheDir, portalImage.imgPath);
+			
 			FileOutputStream out = new FileOutputStream(portalImageFile);
 			picture.compress(Bitmap.CompressFormat.JPEG, 90, out);
 			Log.v("PIL", "Cached image.");
@@ -182,12 +187,14 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 	@Override
 	protected Bitmap doInBackground(String... params) {
 		Bitmap ret = null;
+		Log.v("PIL", "Executing for " + this.portal.title +  "...");
 		
 		try {
 			// First, check if we have that portal cached.
 			
-			ret = getCachedImage();
+			ret = PortalImageLoader.getCachedImage(this.portal, this.databaseHelper, this.ctx);
 			if (ret == null) {
+				Log.v("PIL", "Downloading for " + this.portal.title +  "...");
 				ret = loadBitmap();
 				
 				// Now, cache it!

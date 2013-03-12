@@ -1,18 +1,21 @@
 package de.tinloaf.iris.mobileapp;
 
+
 import android.annotation.TargetApi;
-import android.app.ActionBar;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
 import android.util.Log;
-import android.view.Menu;
 import android.widget.ArrayAdapter;
 
+import com.actionbarsherlock.app.ActionBar;
+import com.actionbarsherlock.app.SherlockFragmentActivity;
+import com.actionbarsherlock.app.SherlockListFragment;
+import com.actionbarsherlock.view.Menu;
+import com.actionbarsherlock.view.MenuItem;
 import com.google.android.gcm.GCMRegistrar;
 import com.j256.ormlite.android.apptools.OpenHelperManager;
 
@@ -21,7 +24,7 @@ import de.tinloaf.iris.mobileapp.rest.ApiInterface;
 import de.tinloaf.iris.mobileapp.rest.MobileData;
 import de.tinloaf.iris.mobileapp.rest.RESTClient;
 
-public class MainActivity extends FragmentActivity implements
+public class MainActivity extends SherlockFragmentActivity implements
 		ActionBar.OnNavigationListener, LoginDialogFragment.LoginDialogListener,
 		RESTClient.RESTFailureListener, MobileData.ApiInterfaceEventListener {
 
@@ -40,6 +43,7 @@ public class MainActivity extends FragmentActivity implements
 	@Override
 	protected void onDestroy() {
 	    super.onDestroy();
+	    Log.v("MAIN", "onDestroy()");
 	    if (databaseHelper != null) {
 	        OpenHelperManager.releaseHelper();
 	        databaseHelper = null;
@@ -57,10 +61,15 @@ public class MainActivity extends FragmentActivity implements
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+	    Log.v("MAIN", "onCreate()");
 		setContentView(R.layout.activity_main);
 
+		if (savedInstanceState != null) {
+			Log.v("MAIN", "Restoring...");
+		}
+		
 		// Set up the action bar to show a dropdown list.
-		final ActionBar actionBar = getActionBar();
+		final ActionBar actionBar = getSupportActionBar();
 		actionBar.setDisplayShowTitleEnabled(false);
 		actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_LIST);
 
@@ -73,6 +82,7 @@ public class MainActivity extends FragmentActivity implements
 								getString(R.string.title_section1),
 								getString(R.string.title_section2),
 								getString(R.string.title_section3), }), this);
+		
 		
 		// Set up GCM
 		GCMRegistrar.checkDevice(this);
@@ -105,24 +115,33 @@ public class MainActivity extends FragmentActivity implements
 
 	@Override
 	public void onRestoreInstanceState(Bundle savedInstanceState) {
+		super.onRestoreInstanceState(savedInstanceState);
+		
 		// Restore the previously serialized current dropdown position.
 		if (savedInstanceState.containsKey(STATE_SELECTED_NAVIGATION_ITEM)) {
-			getActionBar().setSelectedNavigationItem(
+			getSupportActionBar().setSelectedNavigationItem(
 					savedInstanceState.getInt(STATE_SELECTED_NAVIGATION_ITEM));
 		}
 	}
 
 	@Override
 	public void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
 		// Serialize the current dropdown position.
-		outState.putInt(STATE_SELECTED_NAVIGATION_ITEM, getActionBar()
+		outState.putInt(STATE_SELECTED_NAVIGATION_ITEM, getSupportActionBar()
 				.getSelectedNavigationIndex());
 	}
 
+	public void onSettingsClicked(MenuItem item) {
+		Log.v("MAIN", "Clicked settings");
+		Intent intent = new Intent(this, SettingsActivity.class);
+		startActivity(intent);
+	}
+	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.main, menu);
+		getSupportMenuInflater().inflate(R.menu.main, menu);
 		return true;
 	}
 	
@@ -141,9 +160,14 @@ public class MainActivity extends FragmentActivity implements
 	public boolean onNavigationItemSelected(int position, long id) {
 		// When the given dropdown item is selected, show its contents in the
 		// container view.
-		Fragment fragment = new NotificationListFragment();
-		getSupportFragmentManager().beginTransaction()
-				.replace(R.id.container, fragment).commit();
+		if (getSupportFragmentManager().findFragmentByTag("NOTIFICATIONLIST_FRAGMENT") == null) {
+			Log.v("NLF", "Replacing Fragment");
+			SherlockListFragment fragment = new NotificationListFragment();
+			getSupportFragmentManager().beginTransaction().add(R.id.container, fragment, "NOTIFICATIONLIST_FRAGMENT");
+			
+			getSupportFragmentManager().beginTransaction()
+					.replace(R.id.container, fragment, "NOTIFICATIONLIST_FRAGMENT").commit();		
+		}
 		
 		
 		return true;		

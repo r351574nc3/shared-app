@@ -1,5 +1,7 @@
 package de.tinloaf.iris.mobileapp;
 
+import com.actionbarsherlock.app.SherlockDialogFragment;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -11,7 +13,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 
-public class LoginDialogFragment extends DialogFragment {
+public class LoginDialogFragment extends SherlockDialogFragment {
 
 	private LoginDialogListener mListener;
 	

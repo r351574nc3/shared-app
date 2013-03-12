@@ -10,6 +10,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -57,39 +60,72 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 	    return databaseHelper;
 	}
 	
+    private static void generateNotification(Context context) {
+        int icon = R.drawable.ic_launcher;
+        long when = System.currentTimeMillis();
+        String message = "Here be the attacked portals";
+        NotificationManager notificationManager = (NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        Notification notification = new Notification(icon, message, when);
+        String title = context.getString(R.string.app_name);
+        Intent notificationIntent = new Intent(context, MainActivity.class);
+        // set intent so it does not start a new activity
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP |
+                Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent intent =
+                PendingIntent.getActivity(context, 0, notificationIntent, 0);
+        notification.setLatestEventInfo(context, title, message, intent);
+        notification.flags |= Notification.FLAG_AUTO_CANCEL;
+        notificationManager.notify(0, notification);
+
+    }
+
+	
 	private void displayDestructions(JSONArray destructions) {
 		Log.v("GCM", "Called displayDestruction");
 		
 		Intent sendDestrIntent = new Intent(CommonUtilities.BROADCAST_DESTRUCTIONS);
-
-		ArrayList<Destruction> parcels = new ArrayList<Destruction>(destructions.length());
+		Dao<Destruction, Integer> destructionDao;
+		try {
+			destructionDao = getHelper().getDestructionDao();
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			return;
+		}
+		ArrayList<Integer> destrIds = new ArrayList<Integer>(destructions.length());
 		for (int i = 0; i < destructions.length(); i++) {
 			JSONObject cur;
 			try {
 				Destruction destr = new Destruction();
 				cur = destructions.getJSONObject(i);
-				JSONObject fields = cur.getJSONObject("fields");
-				destr.portalId = fields.getInt("portal");
-				if (! fields.isNull("portal_end")) {
-					destr.portalEndId = fields.getInt("portal_end");
+				
+				destr.portalId = cur.getInt("portal");
+				if (! cur.isNull("portal_end")) {
+					destr.portalEndId = cur.getInt("portal_end");
 				} else {
 					destr.portalEndId = -1;
 				}
 				// TODO make that string work
 				//parcels[i].attacker = fields.getString("attacker");
-				destr.kind = fields.getInt("kind");
-				destr.count = fields.getInt("count");
+				destr.kind = cur.getInt("kind");
+				destr.count = cur.getInt("count");
+				destr.attacker = cur.getString("attacker");
+				int timestamp = cur.getInt("date");
+				destr.time = new java.util.Date(timestamp * 1000);
 				
-				parcels.add(destr);
+				destructionDao.create(destr);
+				destrIds.add(destr.id);
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} catch (SQLException e) {
+			// TODO Auto-generated c	atch block
+				e.printStackTrace();
 			}
-			// TODO date
 		}
 		
 		Log.v("GCM", "Sending Destruction Broadcast");
-		sendDestrIntent.putParcelableArrayListExtra("DESTRUCTIONS", parcels);
+		sendDestrIntent.putIntegerArrayListExtra("DESTR_IDS", destrIds);
 		this.sendBroadcast(sendDestrIntent);
 	}
 	
@@ -142,6 +178,7 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 				}
 				
 				displayDestructions(this.destructionArray);
+				generateNotification(GCMIntentService.this);
 			}
 			
 		}
@@ -157,16 +194,15 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 			
 			for (int i = 0; i < destrAr.length(); i++) {
 				JSONObject cur = destrAr.getJSONObject(i);
-				JSONObject fields = cur.getJSONObject("fields");
 				
-				int portal_id = fields.getInt("portal");
+				int portal_id = cur.getInt("portal");
 				if (!portalDao.idExists(portal_id)) {
 					unknownPortals.add(portal_id);
 					oneUnknown = true;
 				}
 				
 				if (! cur.isNull("portal_end")) {
-					int portal_end_id = fields.getInt("portal_end");
+					int portal_end_id = cur.getInt("portal_end");
 					if (!portalDao.idExists(portal_end_id)) {
 						unknownPortals.add(portal_end_id);
 						oneUnknown = true;
@@ -180,6 +216,7 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 				portalFetcher.load(unknownPortals);
 			} else {
 				this.displayDestructions(destrAr);
+				generateNotification(this);
 			}
 			
 		} catch (JSONException e) {

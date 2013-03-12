@@ -5,7 +5,7 @@ import java.util.Date;
 import com.j256.ormlite.field.DatabaseField;
 
 public class SavedPortalImage {
-	@DatabaseField(id = true, generatedId = true)
+	@DatabaseField(generatedId = true)
 	public Integer id;
 	
 	@DatabaseField(foreign = true, unique = true, canBeNull = false)

@@ -30,6 +30,9 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
 	private Dao<SavedPortalImage, SavedPortal> portalImageDao = null;
 	private RuntimeExceptionDao<SavedPortalImage, SavedPortal> portalImageRuntimeDao = null;
 	
+	private Dao<Destruction, Integer> destructionDao = null;
+	private RuntimeExceptionDao<Destruction, Integer> destructionRuntimeDao = null;
+	
 	public DatabaseHelper(Context context) {
 		super(context, DATABASE_NAME, null, DATABASE_VERSION);
 	}
@@ -44,6 +47,7 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
 			Log.i(DatabaseHelper.class.getName(), "onCreate");
 			TableUtils.createTable(connectionSource, SavedPortal.class);
 			TableUtils.createTable(connectionSource, SavedPortalImage.class);
+			TableUtils.createTable(connectionSource, Destruction.class);
 		} catch (SQLException e) {
 			Log.e(DatabaseHelper.class.getName(), "Can't create database", e);
 			throw new RuntimeException(e);
@@ -60,6 +64,7 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
 			Log.i(DatabaseHelper.class.getName(), "onUpgrade");
 			TableUtils.dropTable(connectionSource, SavedPortal.class, true);
 			TableUtils.dropTable(connectionSource, SavedPortalImage.class, true);
+			TableUtils.dropTable(connectionSource, Destruction.class, true);
 			// after we drop the old databases, we create the new ones
 			onCreate(db, connectionSource);
 		} catch (SQLException e) {
@@ -77,6 +82,13 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
 			portalDao = getDao(SavedPortal.class);
 		}
 		return portalDao;
+	}
+	
+	public Dao<Destruction, Integer> getDestructionDao() throws SQLException {
+		if (destructionDao == null) {
+			destructionDao = getDao(Destruction.class);
+		}
+		return destructionDao;
 	}
 	
 	public Dao<SavedPortalImage, SavedPortal> getPortalImageDao() throws SQLException {
@@ -102,6 +114,13 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
 			portalImageRuntimeDao = getRuntimeExceptionDao(SavedPortalImage.class);
 		}
 		return portalImageRuntimeDao;
+	}
+	
+	public RuntimeExceptionDao<Destruction, Integer> getDestructionRuntimeDao() {
+		if (destructionRuntimeDao == null) {
+			destructionRuntimeDao = getRuntimeExceptionDao(Destruction.class);
+		}
+		return destructionRuntimeDao;
 	}
 	
 	/**
