@@ -11,7 +11,7 @@ public final class CommonUtilities {
 		private static final String BROADCAST_DESTRUCTIONS = "de.tinloaf.iris.mobileapp.broadcasts.DESTRUCTIONS";
 		private static final String BROADCAST_CLEANUP = "de.tinloaf.iris.mobileapp.broadcasts.CLEANUP";
 	
-		private static final String SERVER_BASE_URL = "http://192.168.0.4:8000/api/";
+		private static final String SERVER_BASE_URL = "http://10.134.223.115:8000/api/";
 	
 		private static final String PORTAL_IMAGE_CACHE_DIR = "portal_image_cache/";
 	

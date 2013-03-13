@@ -86,11 +86,16 @@ public class GCMIntentService extends GCMBaseIntentService {
         if (wantVibrate)
         	defaults |= Notification.DEFAULT_VIBRATE;
         
+        Intent intent = new Intent(context, MainActivity.class);
+        PendingIntent pIntent = PendingIntent.getActivity(context, 0, intent, 0);
+        
         NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(context)
         .setContentTitle("I.R.I.S. Attack")
         .setContentText("Attack on portal titlegoeshere.")
         .setSmallIcon(R.drawable.ic_launcher)
-        .setDefaults(defaults);
+        .setDefaults(defaults)
+        .setContentIntent(pIntent)
+        .setAutoCancel(true);
         
         notificationManager.notify(
         		NOTIFICATION_ID,
