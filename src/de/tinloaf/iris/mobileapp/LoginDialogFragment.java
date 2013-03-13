@@ -1,17 +1,15 @@
 package de.tinloaf.iris.mobileapp;
 
-import com.actionbarsherlock.app.SherlockDialogFragment;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.v4.app.DialogFragment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
+
+import com.actionbarsherlock.app.SherlockDialogFragment;
 
 public class LoginDialogFragment extends SherlockDialogFragment {
 
@@ -63,7 +61,8 @@ public class LoginDialogFragment extends SherlockDialogFragment {
                 	   EditText username = (EditText) dialogMainView.findViewById(R.id.username);
                 	   EditText apikey = (EditText) dialogMainView.findViewById(R.id.apikey);
                 	   
-                	   mListener.onDialogPositiveClick(username.getText().toString(), apikey.getText().toString());
+                	   mListener.onDialogPositiveClick(username.getText().toString(), apikey.getText().toString());   
+                	   
                    }
                })
                .setNegativeButton(R.string.dismiss, new DialogInterface.OnClickListener() {

@@ -12,8 +12,9 @@ public class MobileData extends ApiInterface {
 
 	private ApiInterfaceEventListener mListener;
 	
-	public MobileData(RESTClient client, ApiInterfaceEventListener mListener) {
-		super(client);
+	public MobileData(String user, String apiKey, ApiInterfaceEventListener mListener) {
+		super(user, apiKey, mListener);
+		Log.v("MD", user + "/" + apiKey);
 		this.mListener = mListener;
 	}
 	

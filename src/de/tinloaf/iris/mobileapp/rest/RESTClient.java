@@ -28,19 +28,19 @@ public class RESTClient {
 	private String user;
 	private String apiKey;
 	private DefaultHttpClient client;
-	private RESTFailureListener failureListener;
+	private RESTClientListenener listener;
 	
-	public RESTClient(String user, String apiKey, RESTFailureListener failureHandler) {
+	public RESTClient(String user, String apiKey, RESTClientListenener listener) {
 		this.user = user;
 		this.apiKey = apiKey;
 		this.client = new DefaultHttpClient();
+		this.listener = listener;
 		Credentials creds = new UsernamePasswordCredentials(user, apiKey);
 		client.getCredentialsProvider().setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), creds);
-		this.failureListener = failureHandler;
 	}
 	
-	public interface RESTFailureListener {
-		public void onLoginFailed();
+	public interface RESTClientListenener {
+		public void onUnauthorized();
 	}
 	
     private static String convertStreamToString(InputStream is) {
@@ -76,10 +76,11 @@ public class RESTClient {
         try {
             response = this.client.execute(request);
             // Examine the response status
-            
+            Log.v("REST", "Trying " + user + "/" + apiKey);
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+            	response.getEntity().consumeContent();
             	Log.i("REST", "Trying to reauthenticate.");
-            	this.failureListener.onLoginFailed();
+            	this.listener.onUnauthorized();
             	return null;
             }
  

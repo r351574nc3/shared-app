@@ -3,6 +3,8 @@ package de.tinloaf.iris.mobileapp.rest;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import de.tinloaf.iris.mobileapp.rest.RESTClient.RESTClientListenener;
+
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -10,9 +12,27 @@ public abstract class ApiInterface  {
 	public static final int REQUEST_GET = 0;
 	public static final int REQUEST_PUT = 1;
 	
-	private RESTClient client;
+	private ApiInterfaceEventListener mListener;
+	private String user;
+	private String apiKey;
 	
-	private class TaskRunner extends AsyncTask<Object, Object, ApiInterface.CallResult> {
+	public ApiInterface(String user, String apiKey, ApiInterfaceEventListener listener) {
+		super();
+		
+		this.mListener = listener;
+		this.user = user;
+		this.apiKey = apiKey;
+	};
+		
+	private class TaskRunner extends AsyncTask<Object, Object, ApiInterface.CallResult> 
+			implements RESTClientListenener {
+		private CallResult failureResult = null;
+		private RESTClient client;
+		
+		public TaskRunner(String user, String apiKey) {
+			this.client = new RESTClient(user, apiKey, this);
+		}
+		
 		@Override
 		protected CallResult doInBackground(Object... params) {
 			try {
@@ -33,6 +53,10 @@ public abstract class ApiInterface  {
 					break;
 				}
 				
+				if (this.failureResult != null) {
+					return this.failureResult;
+				}
+				
 				CallResult result = new CallResult();
 				result.data = json;
 				result.type = type;
@@ -41,7 +65,11 @@ public abstract class ApiInterface  {
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
-			return new CallResult();
+			if (this.failureResult != null) {
+				return this.failureResult;
+			} else {
+				return new CallResult();
+			}
 		}
 		
 		protected void onPutDone() {
@@ -49,6 +77,13 @@ public abstract class ApiInterface  {
 		
 		@Override
 		protected void onPostExecute(CallResult result) {
+			// Call the handlers in the UI thread in case we screwed up
+			if (result.status == CallResult.STATUS_LOGIN_FAILED) {
+				Log.v("APII", "Login failed.");
+				mListener.onLoginFailed();
+				return;
+			}
+			
 			switch (result.type) {
 			case ApiInterface.REQUEST_GET:
 				handleData(result.data);
@@ -58,28 +93,34 @@ public abstract class ApiInterface  {
 			}
 		}
 
-
-		
+		@Override
+		public void onUnauthorized() {
+			Log.v("APII", "onUnauthorized()");
+			this.failureResult = new CallResult();
+			this.failureResult.status = CallResult.STATUS_LOGIN_FAILED;
+		}
 	}
 	
 	public void execute(Object... params) {
-		TaskRunner task = new TaskRunner();
+		
+		TaskRunner task = new TaskRunner(this.user, this.apiKey);
 		task.execute(params);
 	}
 	
 	public class CallResult {
+		public static final int STATUS_OK = 0;
+		public static final int STATUS_LOGIN_FAILED = 1;
+		
+		int status;
 		JSONArray data;
 		int type;
 	}
 
 	protected abstract void handleData(JSONArray data);
 	
-	public ApiInterface(RESTClient client) {
-		this.client = client;
-	}
-	
 	public interface ApiInterfaceEventListener {
 		public void onLoadDone(ApiInterface apiInterface);
+		public void onLoginFailed();
 	}
 	
 }

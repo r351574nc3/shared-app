@@ -33,7 +33,7 @@ import de.tinloaf.iris.mobileapp.rest.RESTClient;
 
 public class MainActivity extends SherlockFragmentActivity implements
 		ActionBar.OnNavigationListener, LoginDialogFragment.LoginDialogListener,
-		RESTClient.RESTFailureListener, MobileData.ApiInterfaceEventListener {
+		ApiInterface.ApiInterfaceEventListener {
 
 	/**
 	 * The serialization (saved instance state) Bundle key representing the
@@ -102,9 +102,7 @@ public class MainActivity extends SherlockFragmentActivity implements
 				new ArrayAdapter<String>(getActionBarThemedContextCompat(),
 						android.R.layout.simple_list_item_1,
 						android.R.id.text1, new String[] {
-								getString(R.string.title_section1),
-								getString(R.string.title_section2),
-								getString(R.string.title_section3), }), this);
+								getString(R.string.title_section1),}), this);
 		
 		
 		
@@ -186,8 +184,16 @@ public class MainActivity extends SherlockFragmentActivity implements
 
 
 	private void showLoginDialog() {
-		DialogFragment dialog = new LoginDialogFragment();
-        dialog.show(getSupportFragmentManager(), "LoginDialogFragment");		
+		if (getSupportFragmentManager().findFragmentByTag("LoginDialogFragment") == null) {
+			
+			getSupportFragmentManager().beginTransaction()
+            	.add(new LoginDialogFragment(), "LoginDialogFragment")
+            	.commit();
+			// make it not return null anymore
+			getSupportFragmentManager().executePendingTransactions();
+			Log.v("MAIN", "Prompting for login");
+			
+		}
 	}
 	
 	private void initGCM() {
@@ -210,7 +216,8 @@ public class MainActivity extends SherlockFragmentActivity implements
 			editor.commit();
 			
 			// Send the GCM key to the server
-			this.md = new MobileData(this.restClient, this);
+			this.md = new MobileData(settings.getString("pref_username", ""),
+					settings.getString("pref_apikey", ""), this);
 			md.load(); // will call onLoadDone and send the GCM key
 		}
 	};
@@ -220,19 +227,16 @@ public class MainActivity extends SherlockFragmentActivity implements
 		if ((! settings.contains("pref_username")) ||
 				(!settings.contains("pref_apikey"))) {
 			showLoginDialog();
-		} else {
-			this.restClient = new RESTClient(settings.getString("pref_username", "null"), 
-					settings.getString("pref_apikey", null), this);			
 		}
 	}
 
 	@Override
 	public void onDialogPositiveClick(String username, String apikey) {
- 	   this.restClient = new RESTClient(username, apikey, this);
- 	   
  	   // Verify that it works and re-associate
  	   
-	   this.md = new MobileData(this.restClient, this);
+		Log.v("MAIN", username + "/" + apikey);
+		
+	   this.md = new MobileData(username, apikey, this);
 	   md.load();
 	   
 	   // TODO make sure stuff worked
@@ -249,7 +253,6 @@ public class MainActivity extends SherlockFragmentActivity implements
 	@Override
 	public void onDialogNegativeClick() {
 		initRest();
-		initGCM();
 	}
 
 
@@ -267,7 +270,6 @@ public class MainActivity extends SherlockFragmentActivity implements
 		
 		// Show dialog, lets build a new rest client.
 		this.initRest();
-		this.initGCM();
 	}
 
 

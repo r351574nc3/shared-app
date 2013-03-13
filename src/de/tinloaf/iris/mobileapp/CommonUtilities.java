@@ -1,7 +1,5 @@
 package de.tinloaf.iris.mobileapp;
 
-import android.app.Application;
-import android.content.pm.ApplicationInfo;
 
 public final class CommonUtilities {
 

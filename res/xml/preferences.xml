@@ -9,5 +9,10 @@
         <EditTextPreference android:title="Portal Image Cache Days" 
             android:numeric="integer" android:key="pref_cache_portalimages"/>
         </PreferenceCategory>
+    <PreferenceCategory android:title="Notifications">
+        <CheckBoxPreference android:key="pref_notify_sound" android:title="Sound" android:defaultValue="true"/>
+        <CheckBoxPreference android:key="pref_notify_vibrate" android:title="Vibrate" android:defaultValue="true"/>
+        <CheckBoxPreference android:key="pref_notify_lights" android:title="LED" android:defaultValue="true"/>
+    </PreferenceCategory>
     
 </PreferenceScreen>

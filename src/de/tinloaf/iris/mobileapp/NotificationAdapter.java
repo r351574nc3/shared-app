@@ -4,8 +4,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 
 import android.app.Activity;
-import android.os.Message;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,7 +11,6 @@ import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 import de.tinloaf.iris.mobileapp.data.DatabaseHelper;
-import android.graphics.Bitmap;
 
 public class NotificationAdapter extends ArrayAdapter<NotificationData> {
 	private Activity activity;

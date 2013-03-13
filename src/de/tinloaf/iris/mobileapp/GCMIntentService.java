@@ -17,8 +17,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
-import android.preference.Preference;
 import android.preference.PreferenceManager;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import com.google.android.gcm.GCMBaseIntentService;
@@ -31,20 +31,15 @@ import de.tinloaf.iris.mobileapp.data.Destruction;
 import de.tinloaf.iris.mobileapp.data.SavedPortal;
 import de.tinloaf.iris.mobileapp.rest.ApiInterface;
 import de.tinloaf.iris.mobileapp.rest.PortalFetcher;
-import de.tinloaf.iris.mobileapp.rest.RESTClient;
 
-public class GCMIntentService extends GCMBaseIntentService implements RESTClient.RESTFailureListener {
+public class GCMIntentService extends GCMBaseIntentService {
 	static final int TYPE_DESTR = 0;
 	
 	private DatabaseHelper databaseHelper = null;
-	private RESTClient restClient;
 
 	@Override
 	public void onCreate() {
 		super.onCreate();
-		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
-		this.restClient = new RESTClient(settings.getString("pref_username", "null"), 
-					settings.getString("pref_apikey", null), this);
 	}
 	
 	@Override
@@ -64,23 +59,42 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 	    return databaseHelper;
 	}
 	
+	private static int NOTIFICATION_ID = 1;
+	
+	// TODO why is this static?
     private static void generateNotification(Context context) {
         int icon = R.drawable.ic_launcher;
         long when = System.currentTimeMillis();
         String message = "Here be the attacked portals";
         NotificationManager notificationManager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
-        Notification notification = new Notification(icon, message, when);
-        String title = context.getString(R.string.app_name);
-        Intent notificationIntent = new Intent(context, MainActivity.class);
-        // set intent so it does not start a new activity
-        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP |
-                Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent intent =
-                PendingIntent.getActivity(context, 0, notificationIntent, 0);
-        notification.setLatestEventInfo(context, title, message, intent);
-        notification.flags |= Notification.FLAG_AUTO_CANCEL;
-        notificationManager.notify(0, notification);
+        
+        int defaults = 0;
+        
+        SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(context);
+        
+        boolean wantLights = settings.getBoolean("pref_notify_lights", true);
+        boolean wantSound = settings.getBoolean("pref_nofity_sound", true);
+        boolean wantVibrate = settings.getBoolean("pref_notify_vibrate", true);
+        
+        if (wantLights) 
+        	defaults |= Notification.DEFAULT_LIGHTS;
+        
+        if (wantSound)
+        	defaults |= Notification.DEFAULT_SOUND;
+        
+        if (wantVibrate)
+        	defaults |= Notification.DEFAULT_VIBRATE;
+        
+        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(context)
+        .setContentTitle("I.R.I.S. Attack")
+        .setContentText("Attack on portal titlegoeshere.")
+        .setSmallIcon(R.drawable.ic_launcher)
+        .setDefaults(defaults);
+        
+        notificationManager.notify(
+        		NOTIFICATION_ID,
+        		mBuilder.build());
 
     }
 
@@ -181,6 +195,11 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 				displayDestructions(this.destructionArray);
 				generateNotification(GCMIntentService.this);
 			}
+
+			@Override
+			public void onLoginFailed() {
+				// TODO DO SOMETHING!
+			}
 			
 		}
 		try {
@@ -212,7 +231,10 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 			}
 			
 			if (oneUnknown) {
-				PortalFetcher portalFetcher = new PortalFetcher(this.restClient, new PortalLoadListener(destrAr));
+				SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
+
+				PortalFetcher portalFetcher = new PortalFetcher(settings.getString("pref_username", ""),
+						settings.getString("pref_apikey", ""), new PortalLoadListener(destrAr));
 				
 				portalFetcher.load(unknownPortals);
 			} else {
@@ -264,11 +286,4 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 		// TODO Auto-generated method stub
 		
 	}
-
-	@Override
-	public void onLoginFailed() {
-		// TODO IMPLEMENT ME
-		
-	}
-
 }

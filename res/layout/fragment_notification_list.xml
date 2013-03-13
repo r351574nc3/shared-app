@@ -16,8 +16,12 @@
                android:dividerHeight="1px"
                android:divider="#e8e8e8"/>
 
-     <TextView android:id="@id/android:empty"
-               android:layout_width="match_parent"
-               android:layout_height="match_parent"
-               android:text="No data"/>
+     <TextView
+         android:id="@id/android:empty"
+         android:layout_width="fill_parent"
+         android:layout_height="fill_parent"
+         android:layout_gravity="center_vertical|center_horizontal"
+         android:text="No Notifications"
+         android:textColor="#FFFFFF" />
+
  </LinearLayout>

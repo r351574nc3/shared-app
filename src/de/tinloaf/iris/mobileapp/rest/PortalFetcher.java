@@ -58,8 +58,8 @@ public class PortalFetcher extends ApiInterface {
 		return this.portals;
 	}
 	
-	public PortalFetcher(RESTClient client, ApiInterfaceEventListener mListener) {
-		super(client);
+	public PortalFetcher(String user, String apiKey, ApiInterfaceEventListener mListener) {
+		super(user, apiKey, mListener);
 		this.mListener = mListener;
 	}
 
