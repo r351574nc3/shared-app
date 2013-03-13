@@ -18,7 +18,7 @@ public class MobileData extends ApiInterface {
 	}
 	
 	public void load() {
-		String url = CommonUtilities.SERVER_BASE_URL + "mdata/";
+		String url = CommonUtilities.getServerBaseUrl() + "mdata/";
 		this.execute(ApiInterface.REQUEST_GET, url);
 	}
 	
@@ -35,16 +35,14 @@ public class MobileData extends ApiInterface {
 			e.printStackTrace();
 		}
 		
-		Log.v("SENT_JSON", json.toString());
-		
-		String url = CommonUtilities.SERVER_BASE_URL + "mdata/";
+		String url = CommonUtilities.getServerBaseUrl() + "mdata/";
 		this.execute(ApiInterface.REQUEST_PUT, url, json);
 	}
 
 	@Override
 	protected void handleData(JSONArray data) {
 		if (data == null) {
-			// Something went wrong
+			Log.e("MD", "No data received");
 			return;
 		}
 		
@@ -54,8 +52,6 @@ public class MobileData extends ApiInterface {
 		
 		try {
 			this.gcmKey = data.getJSONObject(0).getString("gcm_key");
-			Log.v("DAta", this.gcmKey);
-			Log.v("DAta", "Initialized.");			
 		} catch (JSONException e) {
 			this.gcmKey = null;
 			// TODO Auto-generated catch block

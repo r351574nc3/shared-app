@@ -24,7 +24,6 @@ public abstract class ApiInterface  {
 				
 				JSONArray json = null;
 	
-				Log.v("ApiInterface", url);
 				switch (type) {
 				case ApiInterface.REQUEST_GET:
 					json = client.get(url);
@@ -46,7 +45,6 @@ public abstract class ApiInterface  {
 		}
 		
 		protected void onPutDone() {
-			Log.v("REST", "Put done.");
 		};
 		
 		@Override

@@ -16,8 +16,11 @@ import java.util.UUID;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.os.AsyncTask;
+import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.widget.ImageView;
 
@@ -27,21 +30,17 @@ import de.tinloaf.iris.mobileapp.data.DatabaseHelper;
 import de.tinloaf.iris.mobileapp.data.SavedPortal;
 import de.tinloaf.iris.mobileapp.data.SavedPortalImage;
 
-public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
-	private ImageView view;
-	private Bitmap downloadedPicture;
-	private SavedPortal portal;
+public class PortalImageLoader implements Runnable {
+	private Handler mHandler;
 	private Context ctx;
+	private ImageView view;
 	
 	private DatabaseHelper databaseHelper;
 	
-	public PortalImageLoader(ImageView view, SavedPortal portal, DatabaseHelper helper, Context ctx) {
-		this.view = view;
-		this.portal = portal;
-		this.databaseHelper = helper;
+	public PortalImageLoader(DatabaseHelper helper, Context ctx, ImageView view) {
+		this.databaseHelper = helper;		
 		this.ctx = ctx;
-		
-		Log.v("PIL", "Created");
+		this.view = view;
 	}
 	
 	private InputStream openHttpConnection(String urlString) throws IOException
@@ -85,7 +84,6 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 	
 	public static Bitmap getCachedImage(SavedPortal portal, DatabaseHelper dbHelper, Context ctx) {
 		try {
-			Log.v("PIL", "Querying Cache..");
 			Dao<SavedPortalImage, SavedPortal> portalImageDao = dbHelper.getPortalImageDao();
 			
 			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", portal);
@@ -102,7 +100,7 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 			}
 			
 			File myDir = ctx.getExternalFilesDir(null);
-			String fileName = CommonUtilities.PORTAL_IMAGE_CACHE_DIR + "/" + portalImage.imgPath;
+			String fileName = CommonUtilities.getPortalImageCacheDir() + portalImage.imgPath;
 			File portalImageFile = new File(myDir, fileName);
 			if (!portalImageFile.exists()) {
 				portalImageDao.delete(portalImage);
@@ -113,7 +111,6 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 			portalImage.lastUsed = new Date();
 			portalImageDao.update(portalImage);
 			
-			Log.v("PIL", "Returning cached image.");
 			Bitmap ret = BitmapFactory.decodeFile(portalImageFile.getPath());
 			return ret;
 			
@@ -124,12 +121,11 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 		}
 	}
 	
-	private void cachePicture(Bitmap picture) {
+	private void cachePicture(Bitmap picture, SavedPortal portal) {
 		try {
-			Log.v("PIL", "Caching...");
 			Dao<SavedPortalImage, SavedPortal> portalImageDao = this.databaseHelper.getPortalImageDao();
 			
-			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", this.portal);
+			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", portal);
 			if (portalImageList.size() > 0) {
 				return;
 			}
@@ -145,20 +141,19 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 				portalImage = portalImageList.get(0);
 			} else {
 				portalImage = new SavedPortalImage();
-				portalImage.portal = this.portal;
+				portalImage.portal = portal;
 				portalImage.imgPath = UUID.randomUUID().toString();
 				portalImage.lastUsed = new Date();
 				portalImageDao.create(portalImage);
 			}
 			
 			File myDir = this.ctx.getExternalFilesDir(null);
-			File cacheDir = new File(myDir, CommonUtilities.PORTAL_IMAGE_CACHE_DIR);
+			File cacheDir = new File(myDir, CommonUtilities.getPortalImageCacheDir());
 			cacheDir.mkdirs();
 			File portalImageFile = new File(cacheDir, portalImage.imgPath);
-			
+			Log.v("PIL", "Caching to " + portalImageFile.getAbsolutePath());
 			FileOutputStream out = new FileOutputStream(portalImageFile);
 			picture.compress(Bitmap.CompressFormat.JPEG, 90, out);
-			Log.v("PIL", "Cached image.");
 		} catch (SQLException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -169,13 +164,12 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 		}	
 	}
 	
-	private Bitmap loadBitmap() {
+	private Bitmap loadBitmap(SavedPortal portal) {
 		try {
-			Log.v("PIL", "Getting image from " + this.portal.imgUrl);
-			Bitmap picture = this.downloadImage(this.portal.imgUrl);
+			Log.v("PIL", "Getting image from " + portal.imgUrl);
+			Bitmap picture = this.downloadImage(portal.imgUrl);
+			// TODO do the scaling after caching?
 			Bitmap scaledPicture = Bitmap.createScaledBitmap(picture, 110, 110, false);
-			Log.v("PIL", "Image Dimensions: " + picture.getHeight() + "x" + picture.getWidth());
-			this.downloadedPicture = scaledPicture;
 			
 			return scaledPicture;
 		} catch (Exception e) {
@@ -185,32 +179,34 @@ public class PortalImageLoader extends AsyncTask<String, Integer, Bitmap> {
 	}
 
 	@Override
-	protected Bitmap doInBackground(String... params) {
+	public void run() {
 		Bitmap ret = null;
-		Log.v("PIL", "Executing for " + this.portal.title +  "...");
+		SavedPortal portal = (SavedPortal) view.getTag();
 		
 		try {
 			// First, check if we have that portal cached.
 			
-			ret = PortalImageLoader.getCachedImage(this.portal, this.databaseHelper, this.ctx);
+			ret = PortalImageLoader.getCachedImage(portal, this.databaseHelper, this.ctx);
 			if (ret == null) {
-				Log.v("PIL", "Downloading for " + this.portal.title +  "...");
-				ret = loadBitmap();
+				Log.v("PIL", "Downloading for " + portal.title +  "...");
+				ret = loadBitmap(portal);
 				
 				// Now, cache it!
-				cachePicture(ret);
+				cachePicture(ret, portal);
 				// TODO Cache cleanup?
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-			
-		return ret;
-	}
-	
-	@Override
-	protected void onPostExecute(Bitmap picture)
-    {
-		this.view.setImageBitmap(picture);
-    }
+		
+		final Bitmap picture = ret;
+		final ImageView viewToSet = view;
+		
+		viewToSet.post(new Runnable() {
+			public void run() {
+				viewToSet.setImageBitmap(picture);
+
+			}
+		});		
+	}	
 }

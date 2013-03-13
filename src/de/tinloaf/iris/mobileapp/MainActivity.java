@@ -1,12 +1,18 @@
 package de.tinloaf.iris.mobileapp;
 
 
+import java.util.Calendar;
+
 import android.annotation.TargetApi;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
 import android.util.Log;
 import android.widget.ArrayAdapter;
@@ -19,6 +25,7 @@ import com.actionbarsherlock.view.MenuItem;
 import com.google.android.gcm.GCMRegistrar;
 import com.j256.ormlite.android.apptools.OpenHelperManager;
 
+import de.tinloaf.iris.mobileapp.data.CleanupService;
 import de.tinloaf.iris.mobileapp.data.DatabaseHelper;
 import de.tinloaf.iris.mobileapp.rest.ApiInterface;
 import de.tinloaf.iris.mobileapp.rest.MobileData;
@@ -50,6 +57,23 @@ public class MainActivity extends SherlockFragmentActivity implements
 	    }
 	}
 
+	private void setupCleanup() {
+		Intent startCleanupIntent = new Intent(this, CleanupService.class);
+		PendingIntent pi = PendingIntent.getService(this, 0, startCleanupIntent, PendingIntent.FLAG_NO_CREATE);
+		
+		if (pi == null) {
+			AlarmManager alarmManager = (AlarmManager)getSystemService(Context.ALARM_SERVICE);
+			
+			// No intent pending, set one.
+			pi = PendingIntent.getService(this, 0, startCleanupIntent, 0);
+			
+			alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, Calendar.getInstance().getTimeInMillis(), 
+					CommonUtilities.getCleanupSeconds() * 1000, pi);
+			
+			Log.v("MAIN", "Set Alarm");
+		}
+	}
+	
 	private DatabaseHelper getHelper() {
 	    if (databaseHelper == null) {
 	        databaseHelper =
@@ -64,9 +88,8 @@ public class MainActivity extends SherlockFragmentActivity implements
 	    Log.v("MAIN", "onCreate()");
 		setContentView(R.layout.activity_main);
 
-		if (savedInstanceState != null) {
-			Log.v("MAIN", "Restoring...");
-		}
+		// Setup cleanup service
+		setupCleanup();
 		
 		// Set up the action bar to show a dropdown list.
 		final ActionBar actionBar = getSupportActionBar();
@@ -84,17 +107,9 @@ public class MainActivity extends SherlockFragmentActivity implements
 								getString(R.string.title_section3), }), this);
 		
 		
-		// Set up GCM
-		GCMRegistrar.checkDevice(this);
-		GCMRegistrar.checkManifest(this);
-		final String regId = GCMRegistrar.getRegistrationId(this);
-		if (regId.equals("")) {
-		  GCMRegistrar.register(this, "339966378729");
-		} else {
-		  Log.v("Blubb", "Already registered");
-		}
 		
 		this.initRest();
+		this.initGCM();
 	}
 	
 	
@@ -133,7 +148,6 @@ public class MainActivity extends SherlockFragmentActivity implements
 	}
 
 	public void onSettingsClicked(MenuItem item) {
-		Log.v("MAIN", "Clicked settings");
 		Intent intent = new Intent(this, SettingsActivity.class);
 		startActivity(intent);
 	}
@@ -148,12 +162,10 @@ public class MainActivity extends SherlockFragmentActivity implements
 	@Override
 	public void onPause() {
 		super.onPause();
-		Log.v("IRIS", "Paused");
 	}
 	
 	public void onResume() {
 		super.onResume();
-		Log.v("IRIS", "Resume");
 	}
 
 	@Override
@@ -161,7 +173,6 @@ public class MainActivity extends SherlockFragmentActivity implements
 		// When the given dropdown item is selected, show its contents in the
 		// container view.
 		if (getSupportFragmentManager().findFragmentByTag("NOTIFICATIONLIST_FRAGMENT") == null) {
-			Log.v("NLF", "Replacing Fragment");
 			SherlockListFragment fragment = new NotificationListFragment();
 			getSupportFragmentManager().beginTransaction().add(R.id.container, fragment, "NOTIFICATIONLIST_FRAGMENT");
 			
@@ -179,19 +190,39 @@ public class MainActivity extends SherlockFragmentActivity implements
         dialog.show(getSupportFragmentManager(), "LoginDialogFragment");		
 	}
 	
+	private void initGCM() {
+		// Set up GCM
+		GCMRegistrar.checkDevice(this);
+		GCMRegistrar.checkManifest(this);
+		final String regId = GCMRegistrar.getRegistrationId(this);
+		if (regId.equals("")) {
+		  GCMRegistrar.register(this, CommonUtilities.getGoogleProjectId());
+		}
+		
+		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
+		// See if we already sent this key...
+		if ((!settings.contains("gcm_key_sent")) ||
+				(! settings.getString("gcm_key_sent", null).equals(GCMRegistrar.getRegistrationId(this)))) {
+			// Remove it, just to be clear..
+			
+			Editor editor = settings.edit();
+			editor.remove("gcm_key_sent");
+			editor.commit();
+			
+			// Send the GCM key to the server
+			this.md = new MobileData(this.restClient, this);
+			md.load(); // will call onLoadDone and send the GCM key
+		}
+	};
+	
 	private void initRest() {
-    	Log.i("MAIN", "Called initRest()");
-    	
-		SharedPreferences settings = getSharedPreferences("iris", 0);
-		if ((! settings.contains("username")) ||
-				(!settings.contains("apikey"))) {
+		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
+		if ((! settings.contains("pref_username")) ||
+				(!settings.contains("pref_apikey"))) {
 			showLoginDialog();
 		} else {
-			this.restClient = new RESTClient(settings.getString("username", "null"), 
-					settings.getString("apikey", null), this);
-			this.md = new MobileData(this.restClient, this);
-			md.load();
-			
+			this.restClient = new RESTClient(settings.getString("pref_username", "null"), 
+					settings.getString("pref_apikey", null), this);			
 		}
 	}
 
@@ -199,18 +230,18 @@ public class MainActivity extends SherlockFragmentActivity implements
 	public void onDialogPositiveClick(String username, String apikey) {
  	   this.restClient = new RESTClient(username, apikey, this);
  	   
- 	   // Verify that it works
+ 	   // Verify that it works and re-associate
  	   
 	   this.md = new MobileData(this.restClient, this);
 	   md.load();
 	   
 	   // TODO make sure stuff worked
 	   
-	   SharedPreferences settings = getSharedPreferences("iris", 0);
+	   SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
 	   SharedPreferences.Editor editor = settings.edit();
-	   editor.putString("username", username);
-	   editor.putString("apikey", apikey);
-	   editor.commit();		
+	   editor.putString("pref_username", username);
+	   editor.putString("pref_apikey", apikey);
+	   editor.commit();
 	}
 
 
@@ -218,6 +249,7 @@ public class MainActivity extends SherlockFragmentActivity implements
 	@Override
 	public void onDialogNegativeClick() {
 		initRest();
+		initGCM();
 	}
 
 
@@ -227,14 +259,15 @@ public class MainActivity extends SherlockFragmentActivity implements
     	Log.v("MAIN", "Called onLoginFailed()");
 		
 		// Delete API key and username and show dialog
-		SharedPreferences settings = getSharedPreferences("iris", 0);
+		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
 		SharedPreferences.Editor editor = settings.edit();
-		editor.remove("apikey");
-		editor.remove("username");
+		editor.remove("pref_apikey");
+		editor.remove("pref_username");
 		editor.commit();
 		
 		// Show dialog, lets build a new rest client.
 		this.initRest();
+		this.initGCM();
 	}
 
 
@@ -242,7 +275,7 @@ public class MainActivity extends SherlockFragmentActivity implements
 	// Load of MobileData done...
 	@Override
 	public void onLoadDone(ApiInterface apiInterface) {
-		Log.v("MAIN", "Called onLoadDone()");
+		Log.v("MAIN", "Sending GCM Key");
 		this.md.setGcmKey(GCMRegistrar.getRegistrationId(this));
 		this.md.save();
 	}

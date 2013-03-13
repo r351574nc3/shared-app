@@ -16,9 +16,13 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.preference.Preference;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import com.google.android.gcm.GCMBaseIntentService;
+import com.google.android.gcm.GCMRegistrar;
 import com.j256.ormlite.android.apptools.OpenHelperManager;
 import com.j256.ormlite.dao.Dao;
 
@@ -38,9 +42,9 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 	@Override
 	public void onCreate() {
 		super.onCreate();
-		SharedPreferences settings = this.getSharedPreferences("iris", 0);
-		this.restClient = new RESTClient(settings.getString("username", "null"), 
-					settings.getString("apikey", null), this);
+		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
+		this.restClient = new RESTClient(settings.getString("pref_username", "null"), 
+					settings.getString("pref_apikey", null), this);
 	}
 	
 	@Override
@@ -82,9 +86,7 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 
 	
 	private void displayDestructions(JSONArray destructions) {
-		Log.v("GCM", "Called displayDestruction");
-		
-		Intent sendDestrIntent = new Intent(CommonUtilities.BROADCAST_DESTRUCTIONS);
+		Intent sendDestrIntent = new Intent(CommonUtilities.getBroadcastDestructions());
 		Dao<Destruction, Integer> destructionDao;
 		try {
 			destructionDao = getHelper().getDestructionDao();
@@ -111,7 +113,7 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 				destr.count = cur.getInt("count");
 				destr.attacker = cur.getString("attacker");
 				int timestamp = cur.getInt("date");
-				destr.time = new java.util.Date(timestamp * 1000);
+				destr.time = new java.util.Date((long)timestamp * 1000);
 				
 				destructionDao.create(destr);
 				destrIds.add(destr.id);
@@ -130,7 +132,6 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 	}
 	
 	private void handleDestructions(String destructions) {
-		Log.v("GCM", "Called handleDestructions");
 		
 		class PortalLoadListener implements ApiInterface.ApiInterfaceEventListener {
 			JSONArray destructionArray;
@@ -237,8 +238,14 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 	protected void onMessage(Context ctx, Intent msg) {
 		// TODO Why is this a string?
 		int type = Integer.parseInt(msg.getExtras().getString("type"));
-		
-		Log.v("THEBUNDLE", msg.getExtras().toString());
+		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
+		if ((!settings.contains("gcm_key_sent")) || 
+				(!settings.getString("gcm_key_sent", null).equals(GCMRegistrar.getRegistrationId(this)))) {
+			// Store the key that is obviously working
+			Editor editor = settings.edit();
+			editor.putString("gcm_key_sent", GCMRegistrar.getRegistrationId(this));
+			editor.commit();
+		}
 		
 		switch (type) {
 		case TYPE_DESTR:
@@ -249,8 +256,7 @@ public class GCMIntentService extends GCMBaseIntentService implements RESTClient
 
 	@Override
 	protected void onRegistered(Context ctx, String regId) {
-		// TODO Auto-generated method stub
-		System.out.println(regId);
+		// TODO send the key!
 	}
 
 	@Override

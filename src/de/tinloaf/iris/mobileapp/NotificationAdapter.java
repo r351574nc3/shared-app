@@ -4,8 +4,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 
 import android.app.Activity;
-import android.graphics.Bitmap;
-import android.os.AsyncTask;
+import android.os.Message;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,12 +13,14 @@ import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 import de.tinloaf.iris.mobileapp.data.DatabaseHelper;
+import android.graphics.Bitmap;
 
 public class NotificationAdapter extends ArrayAdapter<NotificationData> {
 	private Activity activity;
     private int layoutResourceId;   
     private ArrayList<NotificationData> data = null;
     private DatabaseHelper dbHelper;
+    private Thread imageLoaderThread;
     
     public NotificationAdapter(Activity activity, int layoutResourceId, 
     		ArrayList<NotificationData> data, DatabaseHelper dbHelper) {
@@ -61,18 +62,12 @@ public class NotificationAdapter extends ArrayAdapter<NotificationData> {
         holder.txtDestr.setText(notification.getDestrString());
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
         holder.txtDate.setText(sdf.format(notification.getDate()));
+        holder.imgIcon.setTag(notification.getPortal());
         //holder.txtAttacker.setText(notification.getAttacker());
         //holder.imgIcon.setImageResource(R.drawable.ic_launcher);
         
-        Log.v("NA", "Returning a View");
-        
-        // First, try to get the cached image on this thread..
-        Bitmap picture = PortalImageLoader.getCachedImage(notification.getPortal(), this.dbHelper, this.getContext());
-        
-        PortalImageLoader portalImageLoader = new PortalImageLoader(holder.imgIcon, notification.getPortal(), 
-        		this.dbHelper, this.getContext());
-        Log.v("NA", "Executing PIL for " + notification.getPortalTitle() + "...");
-        portalImageLoader.execute();
+        // Tell the worker thread to get that picture here.
+        new Thread (new PortalImageLoader(this.dbHelper, this.getContext(), holder.imgIcon)).start();
         
         return row;
     }

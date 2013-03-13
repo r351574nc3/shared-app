@@ -63,14 +63,6 @@ public class LoginDialogFragment extends SherlockDialogFragment {
                 	   EditText username = (EditText) dialogMainView.findViewById(R.id.username);
                 	   EditText apikey = (EditText) dialogMainView.findViewById(R.id.apikey);
                 	   
-                	   if (username == null) {
-                		   Log.v("IRIS", "Where is my field?");
-                	   }
-                	   
-                	   if (username.getText() == null) {
-                		   Log.v("IRIS", "Where is the text?");
-                	   }
-                	   
                 	   mListener.onDialogPositiveClick(username.getText().toString(), apikey.getText().toString());
                    }
                })

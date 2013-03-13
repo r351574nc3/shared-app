@@ -45,7 +45,6 @@ public class NotificationListFragment extends SherlockListFragment {
     
 	@Override
 	public void onDestroy() {
-		Log.v("NLF", "onDestroy()");
 	    super.onDestroy();
 	    if (databaseHelper != null) {
 	        OpenHelperManager.releaseHelper();
@@ -58,7 +57,6 @@ public class NotificationListFragment extends SherlockListFragment {
 	@Override
 	public void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
-		Log.v("NLF", "Saving state...");
 		outState.putParcelableArrayList("NOTIFICATION_LIST", this.notificationData);
 	}
 
@@ -112,7 +110,6 @@ public class NotificationListFragment extends SherlockListFragment {
         @Override
         public void onReceive(Context context, Intent intent) {
         	try {
-	        	Log.v("NLF", "Received Destruction-Broadcast");
 	        	ArrayList<Integer> destrIds = intent.getIntegerArrayListExtra("DESTR_IDS");
 
 	        	Dao<Destruction, Integer> destrDao = getHelper().getDestructionDao();
@@ -135,19 +132,16 @@ public class NotificationListFragment extends SherlockListFragment {
     @Override
     public void onDetach() {
     	super.onDetach();
-    	Log.v("NLF", "onDetach()");
     }
     
     @Override
     public void onAttach(Activity activity) {
     	super.onAttach(activity);
-    	Log.v("NLF", "onAttach()");
     }
     
     @Override
     public void onCreate(Bundle savedInstanceState) {
     	super.onCreate(savedInstanceState);
-		Log.v("NLF", "onCreate()");
 
 		if ((savedInstanceState != null) && (savedInstanceState.containsKey("NOTIFICATION_LIST"))) {
 			this.notificationData = savedInstanceState.getParcelableArrayList("NOTIFICATION_LIST");
@@ -181,9 +175,8 @@ public class NotificationListFragment extends SherlockListFragment {
         this.mHandleMessageReceiver = new DestructionReceiver(adapter);
         	
         getActivity().registerReceiver(this.mHandleMessageReceiver, 
-        		new IntentFilter(CommonUtilities.BROADCAST_DESTRUCTIONS));
+        		new IntentFilter(CommonUtilities.getBroadcastDestructions()));
         
-		Log.v("NLF", "Registered Receiver");
 	}
 	
 	
@@ -191,12 +184,7 @@ public class NotificationListFragment extends SherlockListFragment {
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
-		Log.v("NLF", "onCreateView");
 
 		return inflater.inflate(R.layout.fragment_notification_list, container, false);		
-	}
-	
-	public void loadStuff(View view) {
-		Log.v("IRIS", "Load stuff!");
-	}
+	}	
 }

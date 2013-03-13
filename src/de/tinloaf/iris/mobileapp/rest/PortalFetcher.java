@@ -48,7 +48,7 @@ public class PortalFetcher extends ApiInterface {
 	}
 	
 	public void load(List<Integer> ids) {
-		String url = CommonUtilities.SERVER_BASE_URL + "portal/";
+		String url = CommonUtilities.getServerBaseUrl() + "portal/";
 		url = this.addIdsToURL(url, ids);
 		
 		this.execute(ApiInterface.REQUEST_GET, url);
@@ -80,7 +80,6 @@ public class PortalFetcher extends ApiInterface {
 				pd.title = cur.getString("title");
 				pd.address = cur.getString("address");
 				pd.description = cur.getString("description");
-				Log.v("PF", "Fetched imgUrl: " + cur.getString("img_url"));
 				pd.imgUrl = cur.getString("img_url");
 				pd.lat = cur.getDouble("x");
 				pd.lng = cur.getDouble("y");

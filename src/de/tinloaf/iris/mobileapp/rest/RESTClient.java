@@ -76,7 +76,6 @@ public class RESTClient {
         try {
             response = this.client.execute(request);
             // Examine the response status
-            Log.i("REST",response.getStatusLine().toString());
             
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
             	Log.i("REST", "Trying to reauthenticate.");
@@ -93,7 +92,6 @@ public class RESTClient {
  
                 InputStream instream = entity.getContent();
                 String result= convertStreamToString(instream);
-                Log.i("TOJSONARRAY",result);
  
                 // TODO give back everything?
                 JSONArray json = new JSONArray(result);
