@@ -76,7 +76,6 @@ public class RESTClient {
         try {
             response = this.client.execute(request);
             // Examine the response status
-            Log.v("REST", "Trying " + user + "/" + apiKey);
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
             	response.getEntity().consumeContent();
             	Log.i("REST", "Trying to reauthenticate.");

@@ -79,7 +79,6 @@ public abstract class ApiInterface  {
 		protected void onPostExecute(CallResult result) {
 			// Call the handlers in the UI thread in case we screwed up
 			if (result.status == CallResult.STATUS_LOGIN_FAILED) {
-				Log.v("APII", "Login failed.");
 				mListener.onLoginFailed();
 				return;
 			}
@@ -95,7 +94,6 @@ public abstract class ApiInterface  {
 
 		@Override
 		public void onUnauthorized() {
-			Log.v("APII", "onUnauthorized()");
 			this.failureResult = new CallResult();
 			this.failureResult.status = CallResult.STATUS_LOGIN_FAILED;
 		}

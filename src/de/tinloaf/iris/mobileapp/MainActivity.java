@@ -234,8 +234,6 @@ public class MainActivity extends SherlockFragmentActivity implements
 	public void onDialogPositiveClick(String username, String apikey) {
  	   // Verify that it works and re-associate
  	   
-		Log.v("MAIN", username + "/" + apikey);
-		
 	   this.md = new MobileData(username, apikey, this);
 	   md.load();
 	   
@@ -259,8 +257,6 @@ public class MainActivity extends SherlockFragmentActivity implements
 
 	@Override
 	public void onLoginFailed() {
-    	Log.v("MAIN", "Called onLoginFailed()");
-		
 		// Delete API key and username and show dialog
 		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
 		SharedPreferences.Editor editor = settings.edit();
