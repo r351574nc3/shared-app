@@ -2,9 +2,11 @@ package de.tinloaf.iris.mobileapp;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -25,10 +27,12 @@ import com.google.android.gcm.GCMBaseIntentService;
 import com.google.android.gcm.GCMRegistrar;
 import com.j256.ormlite.android.apptools.OpenHelperManager;
 import com.j256.ormlite.dao.Dao;
+import com.j256.ormlite.stmt.QueryBuilder;
 
 import de.tinloaf.iris.mobileapp.data.DatabaseHelper;
 import de.tinloaf.iris.mobileapp.data.Destruction;
 import de.tinloaf.iris.mobileapp.data.SavedPortal;
+import de.tinloaf.iris.mobileapp.data.SavedPortalImage;
 import de.tinloaf.iris.mobileapp.rest.ApiInterface;
 import de.tinloaf.iris.mobileapp.rest.PortalFetcher;
 
@@ -36,7 +40,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 	static final int TYPE_DESTR = 0;
 	
 	private DatabaseHelper databaseHelper = null;
-
+	
 	@Override
 	public void onCreate() {
 		super.onCreate();
@@ -45,6 +49,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 	@Override
 	public void onDestroy() {
 	    super.onDestroy();
+	    Log.v("GIS", "Service shutting down");
 	    if (databaseHelper != null) {
 	        OpenHelperManager.releaseHelper();
 	        databaseHelper = null;
@@ -62,58 +67,160 @@ public class GCMIntentService extends GCMBaseIntentService {
 	private static int NOTIFICATION_ID = 1;
 	
 	// TODO why is this static?
-    private static void generateNotification(Context context) {
+    private void generateNotification(Context context, List<Destruction> destrList) {
         int icon = R.drawable.ic_launcher;
         long when = System.currentTimeMillis();
-        String message = "Here be the attacked portals";
+        
         NotificationManager notificationManager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
-        
+        		context.getSystemService(Context.NOTIFICATION_SERVICE);
+
         int defaults = 0;
-        
-        SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(context);
-        
-        boolean wantLights = settings.getBoolean("pref_notify_lights", true);
-        boolean wantSound = settings.getBoolean("pref_nofity_sound", true);
-        boolean wantVibrate = settings.getBoolean("pref_notify_vibrate", true);
-        
-        if (wantLights) 
-        	defaults |= Notification.DEFAULT_LIGHTS;
-        
-        if (wantSound)
-        	defaults |= Notification.DEFAULT_SOUND;
-        
-        if (wantVibrate)
-        	defaults |= Notification.DEFAULT_VIBRATE;
-        
+
         Intent intent = new Intent(context, MainActivity.class);
-        PendingIntent pIntent = PendingIntent.getActivity(context, 0, intent, 0);
-        
-        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(context)
-        .setContentTitle("I.R.I.S. Attack")
-        .setContentText("Attack on portal titlegoeshere.")
-        .setSmallIcon(R.drawable.ic_launcher)
-        .setDefaults(defaults)
-        .setContentIntent(pIntent)
-        .setAutoCancel(true);
-        
-        notificationManager.notify(
-        		NOTIFICATION_ID,
-        		mBuilder.build());
+        intent.putExtra("IS_NOTIFICATION", true);
+    	PendingIntent pIntent = PendingIntent.getActivity(context, 1, intent, 0);
+     
+        SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(context);
+
+        DatabaseHelper helper = getHelper();
+        Dao<SavedPortal, Integer> portalDao = null;
+        Dao<Destruction, Integer> destrDao = null;
+        try {
+        	portalDao = helper.getPortalDao();
+        	destrDao = helper.getDestructionDao();
+        	
+        	QueryBuilder queryBuilder = destrDao.queryBuilder();
+        	queryBuilder.where().eq("displayed", false);
+        	queryBuilder.orderBy("time", false);
+
+        	List<Destruction> destructions = destrDao.query(queryBuilder.prepare());
+
+        	String title = " Attacks";
+        	String message = "1";
+        	Iterator it = destructions.iterator();
+        	int titled = 0;
+        	int untitled = 0;
+        	List<Integer> orderedPortalIds = new LinkedList<Integer>();
+        	Map<Integer, Integer> destrCounts = new HashMap<Integer,Integer>();
+        	// Map portal IDs to number of destructions
+        	int totalAttacks = 0;
+        	while (it.hasNext()) {
+        		Destruction cur = (Destruction) it.next();
+        		
+        		totalAttacks += 1;
+        		
+        		if (destrCounts.containsKey(cur.portalId)) {
+        			destrCounts.put(cur.portalId, destrCounts.get(cur.portalId) + cur.count);
+        		} else {
+        			destrCounts.put(cur.portalId, cur.count);
+        			orderedPortalIds.add(cur.portalId);
+        		}
+        	}
+        	
+        	
+        	// Now, construct the messages in portal order
+        	it = orderedPortalIds.iterator();
+        	while (it.hasNext()) {
+        		Integer portalId = (Integer) it.next();
+        		SavedPortal portal;
+        		portal = portalDao.queryForId(portalId);
+
+        		if (portal.title != null) {
+        			if (titled == 0) {
+        				title += ": " + destrCounts.get(portalId) + "@" + portal.title;
+        			} else {
+        				if (titled == 1) {
+        					title += ", ...";
+        					message += destrCounts.get(portalId) + "@" + portal.title;        				
+        				} else {
+        					message += ", " + destrCounts.get(portalId) + "@" + portal.title;
+        				}
+        			}
+        			titled++;
+        		} else {
+        			untitled++;
+        		}
+        	}
+
+        	if (untitled > 0) {
+        		if (titled > 1) {
+        			message += " +";
+        		}
+        		message += Integer.toString(untitled) + " untitled";
+        	}
+        	
+        	title = Integer.toString(totalAttacks) + title;
+
+        	boolean wantLights = settings.getBoolean("pref_notify_lights", true);
+        	boolean wantSound = settings.getBoolean("pref_notifiy_sound", true);
+        	boolean wantVibrate = settings.getBoolean("pref_notify_vibrate", true);
+
+        	if (wantLights) 
+        		defaults |= Notification.DEFAULT_LIGHTS;
+        	else 
+        		defaults &= ~Notification.DEFAULT_LIGHTS;
+
+        	if (wantSound)
+        		defaults |= Notification.DEFAULT_SOUND;
+        	else 
+        		defaults &= ~Notification.DEFAULT_SOUND;
+
+        	if (wantVibrate)
+        		defaults |= Notification.DEFAULT_VIBRATE;
+        	else 
+        		defaults &= ~Notification.DEFAULT_VIBRATE;
+
+
+        	NotificationCompat.Style bigStyle = new NotificationCompat.BigTextStyle().bigText(message);
+        	
+        	Intent deleteIntent = new Intent(CommonUtilities.getBroadcastClearnotification());
+        	PendingIntent pDeleteIntent = PendingIntent.getBroadcast(context, 2, deleteIntent, 0);
+        	
+        	NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(context)
+        	.setContentTitle(title)
+        	.setContentText(message)
+        	.setSmallIcon(R.drawable.ic_launcher)
+        	.setDefaults(defaults)
+        	.setContentIntent(pIntent)
+        	.setAutoCancel(true)
+        	.setStyle(bigStyle)
+        	.setDeleteIntent(pDeleteIntent);
+
+        	notificationManager.notify(
+        			NOTIFICATION_ID,
+        			mBuilder.build());
+
+        } catch (SQLException e) {
+        	// TODO Auto-generated catch block
+        	e.printStackTrace();
+        }
 
     }
 
-	
-	private void displayDestructions(JSONArray destructions) {
+    private void displayDestructions(List<Destruction> destructions) {
+		ArrayList<Integer> destrIds = new ArrayList<Integer>();
 		Intent sendDestrIntent = new Intent(CommonUtilities.getBroadcastDestructions());
+		
+		Iterator<Destruction> it = destructions.iterator();
+		while (it.hasNext()) {
+			Destruction cur = it.next();
+			destrIds.add(cur.id);
+		}
+		
+		sendDestrIntent.putIntegerArrayListExtra("DESTR_IDS", destrIds);
+		this.sendBroadcast(sendDestrIntent);
+    }
+	
+	private List<Destruction> createDestructions(JSONArray destructions) {
 		Dao<Destruction, Integer> destructionDao;
+		List<Destruction> destrList = new LinkedList<Destruction>();
+		
 		try {
 			destructionDao = getHelper().getDestructionDao();
 		} catch (SQLException e1) {
 			e1.printStackTrace();
-			return;
+			return null;
 		}
-		ArrayList<Integer> destrIds = new ArrayList<Integer>(destructions.length());
 		for (int i = 0; i < destructions.length(); i++) {
 			JSONObject cur;
 			try {
@@ -135,7 +242,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 				destr.time = new java.util.Date((long)timestamp * 1000);
 				
 				destructionDao.create(destr);
-				destrIds.add(destr.id);
+				destrList.add(destr);
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -145,9 +252,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 			}
 		}
 		
-		Log.v("GCM", "Sending Destruction Broadcast");
-		sendDestrIntent.putIntegerArrayListExtra("DESTR_IDS", destrIds);
-		this.sendBroadcast(sendDestrIntent);
+		return destrList;
 	}
 	
 	private void handleDestructions(String destructions) {
@@ -161,48 +266,26 @@ public class GCMIntentService extends GCMBaseIntentService {
 			
 			@Override
 			public void onLoadDone(ApiInterface apiInterface) {
-				PortalFetcher portalFetcher = (PortalFetcher) apiInterface;
+				// portals should have been loaded to the database
 				
-				// Insert them into the database
-				DatabaseHelper helper = getHelper();
-				Dao<SavedPortal, Integer> portalDao = null;
-				try {
-					portalDao = helper.getPortalDao();
-				} catch (SQLException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				List<Destruction> destrList = GCMIntentService.this.createDestructions(this.destructionArray);
 				
-				List<PortalFetcher.PortalData> portals = portalFetcher.getPortals();
-				Iterator<PortalFetcher.PortalData> it = portals.iterator();
-				while (it.hasNext()) {
-					PortalFetcher.PortalData portalData = it.next();
-					
-					SavedPortal savedPortal = new SavedPortal();
-					savedPortal.id = portalData.id;
-					savedPortal.title = portalData.title;
-					savedPortal.description = portalData.description;
-					savedPortal.address = portalData.address;
-					savedPortal.lat = portalData.lat;
-					savedPortal.lng = portalData.lng;
-					savedPortal.subscription = portalData.subscription;
-					savedPortal.imgUrl = portalData.imgUrl;
-					
-					try {
-						portalDao.create(savedPortal);
-					} catch (SQLException e) {
-						// TODO Auto-generated catch block
-						// TODO what if already there?
-						e.printStackTrace();
-					}
-				}
-				
-				displayDestructions(this.destructionArray);
-				generateNotification(GCMIntentService.this);
+				displayDestructions(destrList);
+				generateNotification(GCMIntentService.this, destrList);
 			}
 
 			@Override
 			public void onLoginFailed() {
+				// TODO DO SOMETHING!
+			}
+
+			@Override
+			public void onPutDone() {
+				// Nothing to do here. :)
+			}
+
+			@Override
+			public void onError(String message) {
 				// TODO DO SOMETHING!
 			}
 			
@@ -221,16 +304,36 @@ public class GCMIntentService extends GCMBaseIntentService {
 				JSONObject cur = destrAr.getJSONObject(i);
 				
 				int portal_id = cur.getInt("portal");
+				long portal_timestamp = Long.parseLong(cur.getString("portal_stamp"));
 				if (!portalDao.idExists(portal_id)) {
 					unknownPortals.add(portal_id);
 					oneUnknown = true;
+				} else {
+					// TODO we're retrieving them twice...fix tihs.
+					SavedPortal portal = portalDao.queryForId(portal_id);
+					if (portal.stamp < portal_timestamp) {
+						Log.v("GIS", "Trying to reload outdated portal data");
+						// WARNING Do not delete that portal here! If reloading fails,
+						// we have destructions refering to a not loaded portal. That is bad.
+						unknownPortals.add(portal_id);
+						oneUnknown = true;
+					}
 				}
 				
 				if (! cur.isNull("portal_end")) {
 					int portal_end_id = cur.getInt("portal_end");
+					long portal_end_timestamp = Long.parseLong(cur.getString("portal_end_stamp"));
 					if (!portalDao.idExists(portal_end_id)) {
 						unknownPortals.add(portal_end_id);
 						oneUnknown = true;
+					} else {
+						// TODO we're retrieving them twice...fix tihs.
+						SavedPortal portal = portalDao.queryForId(portal_end_id);
+						if (portal.stamp < portal_end_timestamp) {
+							portalDao.delete(portal);
+							unknownPortals.add(portal_end_id);
+							oneUnknown = true;
+						}
 					}
 				}
 			}
@@ -241,10 +344,11 @@ public class GCMIntentService extends GCMBaseIntentService {
 				PortalFetcher portalFetcher = new PortalFetcher(settings.getString("pref_username", ""),
 						settings.getString("pref_apikey", ""), new PortalLoadListener(destrAr));
 				
-				portalFetcher.load(unknownPortals);
+				portalFetcher.loadToDatabase(unknownPortals, this);
 			} else {
-				this.displayDestructions(destrAr);
-				generateNotification(this);
+				List<Destruction> destrList = this.createDestructions(destrAr);
+				this.displayDestructions(destrList);
+				generateNotification(this, destrList);
 			}
 			
 		} catch (JSONException e) {

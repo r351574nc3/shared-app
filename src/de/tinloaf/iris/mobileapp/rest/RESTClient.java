@@ -9,19 +9,16 @@ import java.io.UnsupportedEncodingException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.util.Base64;
 import android.util.Log;
  
 public class RESTClient {
@@ -35,8 +32,6 @@ public class RESTClient {
 		this.apiKey = apiKey;
 		this.client = new DefaultHttpClient();
 		this.listener = listener;
-		Credentials creds = new UsernamePasswordCredentials(user, apiKey);
-		client.getCredentialsProvider().setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), creds);
 	}
 	
 	public interface RESTClientListenener {
@@ -70,10 +65,13 @@ public class RESTClient {
         return sb.toString();
     }
  
-    private JSONArray execute(HttpRequestBase request) {
+    private JSONObject execute(HttpRequestBase request) {
         // Execute the request
         HttpResponse response;
         try {
+        	String authString = "Basic " + Base64.encodeToString((this.user + ":" + this.apiKey).getBytes(), Base64.NO_WRAP); 
+        	request.addHeader("Authorization", authString);
+        	
             response = this.client.execute(request);
             // Examine the response status
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
@@ -92,13 +90,14 @@ public class RESTClient {
  
                 InputStream instream = entity.getContent();
                 String result= convertStreamToString(instream);
- 
+
                 // TODO give back everything?
-                JSONArray json = new JSONArray(result);
+                JSONObject json = new JSONObject(result);
+                
                 
                 return json;
             } else {
-            	return new JSONArray();
+            	return new JSONObject("{\"status\": \"fail\", \"msg\": \"Empty response\"}");
             }
             
         } catch (ClientProtocolException e) {
@@ -112,10 +111,16 @@ public class RESTClient {
             e.printStackTrace();
         }
         
-		return new JSONArray();    	
+    	try {
+			return new JSONObject("{\"status\": \"fail\", \"msg\": \"Exception\"}");
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	return null;
     }
     
-    public void put(String url, JSONObject json) {
+    public JSONObject put(String url, JSONObject json) {
         // Prepare a request object
         HttpPut httpput = new HttpPut(url); 
         
@@ -129,10 +134,10 @@ public class RESTClient {
 			e.printStackTrace();
 		}
         
-        this.execute(httpput);
+        return this.execute(httpput);
     }
     
-    public JSONArray get(String url)
+    public JSONObject get(String url)
     { 
         // Prepare a request object
         HttpGet httpget = new HttpGet(url); 

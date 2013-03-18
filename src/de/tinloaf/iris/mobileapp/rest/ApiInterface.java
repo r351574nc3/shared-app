@@ -3,10 +3,11 @@ package de.tinloaf.iris.mobileapp.rest;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import de.tinloaf.iris.mobileapp.rest.RESTClient.RESTClientListenener;
-
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
-import android.util.Log;
+import android.preference.PreferenceManager;
+import de.tinloaf.iris.mobileapp.rest.RESTClient.RESTClientListenener;
 
 public abstract class ApiInterface  {
 	public static final int REQUEST_GET = 0;
@@ -15,6 +16,14 @@ public abstract class ApiInterface  {
 	private ApiInterfaceEventListener mListener;
 	private String user;
 	private String apiKey;
+	
+	public ApiInterface(ApiInterfaceEventListener listener, Context ctx) {
+		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(ctx);
+		
+		this.user = settings.getString("pref_username", null);
+		this.apiKey = settings.getString("pref_apikey", null);
+		this.mListener = listener;
+	}
 	
 	public ApiInterface(String user, String apiKey, ApiInterfaceEventListener listener) {
 		super();
@@ -42,14 +51,14 @@ public abstract class ApiInterface  {
 				// URL is param 1
 				String url = (String)params[1];
 				
-				JSONArray json = null;
+				JSONObject json = null;
 	
 				switch (type) {
 				case ApiInterface.REQUEST_GET:
 					json = client.get(url);
 					break;
 				case ApiInterface.REQUEST_PUT:
-					client.put(url, (JSONObject)params[2]);
+					json = client.put(url, (JSONObject)params[2]);
 					break;
 				}
 				
@@ -58,9 +67,21 @@ public abstract class ApiInterface  {
 				}
 				
 				CallResult result = new CallResult();
-				result.data = json;
-				result.type = type;
 				
+				if (json.getString("status").equals("ok")) {
+					if (json.has("data")) {
+						result.data = json.getJSONArray("data");
+					} else {
+						result.data = new JSONArray();
+					}
+					result.type = type;
+					result.status = CallResult.STATUS_OK;
+				} else {
+					result.status = CallResult.STATUS_ERROR;
+					if (json.has("msg")) {
+						result.msg = json.getString("msg");
+					}
+				}
 				return result;
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -73,6 +94,7 @@ public abstract class ApiInterface  {
 		}
 		
 		protected void onPutDone() {
+			mListener.onPutDone();
 		};
 		
 		@Override
@@ -83,11 +105,16 @@ public abstract class ApiInterface  {
 				return;
 			}
 			
+			if (result.status == CallResult.STATUS_ERROR) {
+				mListener.onError(result.msg);
+			}
+			
 			switch (result.type) {
 			case ApiInterface.REQUEST_GET:
 				handleData(result.data);
 				break;
 			case ApiInterface.REQUEST_PUT:
+				// TODO status code validation
 				this.onPutDone();
 			}
 		}
@@ -108,10 +135,12 @@ public abstract class ApiInterface  {
 	public class CallResult {
 		public static final int STATUS_OK = 0;
 		public static final int STATUS_LOGIN_FAILED = 1;
+		public static final int STATUS_ERROR = 2;
 		
-		int status;
+		int status = 2;
 		JSONArray data;
 		int type;
+		String msg;
 	}
 
 	protected abstract void handleData(JSONArray data);
@@ -119,6 +148,8 @@ public abstract class ApiInterface  {
 	public interface ApiInterfaceEventListener {
 		public void onLoadDone(ApiInterface apiInterface);
 		public void onLoginFailed();
+		public void onPutDone();
+		public void onError(String message);
 	}
 	
 }

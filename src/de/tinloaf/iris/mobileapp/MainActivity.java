@@ -5,15 +5,16 @@ import java.util.Calendar;
 
 import android.annotation.TargetApi;
 import android.app.AlarmManager;
+import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.v4.app.DialogFragment;
 import android.util.Log;
 import android.widget.ArrayAdapter;
 
@@ -25,15 +26,17 @@ import com.actionbarsherlock.view.MenuItem;
 import com.google.android.gcm.GCMRegistrar;
 import com.j256.ormlite.android.apptools.OpenHelperManager;
 
+import de.tinloaf.iris.mobileapp.NotificationListFragment.NotificationListEventListener;
 import de.tinloaf.iris.mobileapp.data.CleanupService;
 import de.tinloaf.iris.mobileapp.data.DatabaseHelper;
+import de.tinloaf.iris.mobileapp.data.SavedPortal;
 import de.tinloaf.iris.mobileapp.rest.ApiInterface;
 import de.tinloaf.iris.mobileapp.rest.MobileData;
 import de.tinloaf.iris.mobileapp.rest.RESTClient;
 
 public class MainActivity extends SherlockFragmentActivity implements
 		ActionBar.OnNavigationListener, LoginDialogFragment.LoginDialogListener,
-		ApiInterface.ApiInterfaceEventListener {
+		ApiInterface.ApiInterfaceEventListener, NotificationListEventListener {
 
 	/**
 	 * The serialization (saved instance state) Bundle key representing the
@@ -43,6 +46,7 @@ public class MainActivity extends SherlockFragmentActivity implements
 
 	private RESTClient restClient;
 	private MobileData md;
+	private boolean restoring = false;
 	
 	
 	private DatabaseHelper databaseHelper = null;
@@ -70,7 +74,6 @@ public class MainActivity extends SherlockFragmentActivity implements
 			alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, Calendar.getInstance().getTimeInMillis(), 
 					CommonUtilities.getCleanupSeconds() * 1000, pi);
 			
-			Log.v("MAIN", "Set Alarm");
 		}
 	}
 	
@@ -84,8 +87,14 @@ public class MainActivity extends SherlockFragmentActivity implements
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
+		if (savedInstanceState != null) {
+			// We are resuming
+			this.restoring = true;
+		}
+		
+		
 		super.onCreate(savedInstanceState);
-	    Log.v("MAIN", "onCreate()");
+	    
 		setContentView(R.layout.activity_main);
 
 		// Setup cleanup service
@@ -130,19 +139,23 @@ public class MainActivity extends SherlockFragmentActivity implements
 	public void onRestoreInstanceState(Bundle savedInstanceState) {
 		super.onRestoreInstanceState(savedInstanceState);
 		
+		/*
 		// Restore the previously serialized current dropdown position.
 		if (savedInstanceState.containsKey(STATE_SELECTED_NAVIGATION_ITEM)) {
 			getSupportActionBar().setSelectedNavigationItem(
 					savedInstanceState.getInt(STATE_SELECTED_NAVIGATION_ITEM));
 		}
+		*/
 	}
 
 	@Override
 	public void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
 		// Serialize the current dropdown position.
+		/*
 		outState.putInt(STATE_SELECTED_NAVIGATION_ITEM, getSupportActionBar()
 				.getSelectedNavigationIndex());
+				*/
 	}
 
 	public void onSettingsClicked(MenuItem item) {
@@ -164,12 +177,35 @@ public class MainActivity extends SherlockFragmentActivity implements
 	
 	public void onResume() {
 		super.onResume();
+		
+		Intent resumeIntent = getIntent();
+		if (resumeIntent.hasExtra("IS_NOTIFICATION")) {
+			Intent markReadIntent = new Intent(CommonUtilities.getBroadcastClearnotification());
+			this.sendBroadcast(markReadIntent);
+		}
+		
+		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
+		if (! settings.getBoolean("registration_success", false)) {
+			this.showLoginDialog();
+		}
 	}
 
+	@Override
+	public void onBackPressed() {
+		// Do not finish the activity, go back to main selected fragment
+		onNavigationItemSelected(getSupportActionBar().getSelectedNavigationIndex(), 0);		
+	}
+	
 	@Override
 	public boolean onNavigationItemSelected(int position, long id) {
 		// When the given dropdown item is selected, show its contents in the
 		// container view.
+		
+		if (this.restoring) {
+			this.restoring = false;
+			return true;
+		}
+		
 		if (getSupportFragmentManager().findFragmentByTag("NOTIFICATIONLIST_FRAGMENT") == null) {
 			SherlockListFragment fragment = new NotificationListFragment();
 			getSupportFragmentManager().beginTransaction().add(R.id.container, fragment, "NOTIFICATIONLIST_FRAGMENT");
@@ -178,7 +214,7 @@ public class MainActivity extends SherlockFragmentActivity implements
 					.replace(R.id.container, fragment, "NOTIFICATIONLIST_FRAGMENT").commit();		
 		}
 		
-		
+		getSupportActionBar().setDisplayHomeAsUpEnabled(false);
 		return true;		
 	}
 
@@ -251,6 +287,8 @@ public class MainActivity extends SherlockFragmentActivity implements
 	@Override
 	public void onDialogNegativeClick() {
 		initRest();
+		
+		
 	}
 
 
@@ -262,6 +300,8 @@ public class MainActivity extends SherlockFragmentActivity implements
 		SharedPreferences.Editor editor = settings.edit();
 		editor.remove("pref_apikey");
 		editor.remove("pref_username");
+		editor.putBoolean("registration_success", false);
+		
 		editor.commit();
 		
 		// Show dialog, lets build a new rest client.
@@ -276,6 +316,55 @@ public class MainActivity extends SherlockFragmentActivity implements
 		Log.v("MAIN", "Sending GCM Key");
 		this.md.setGcmKey(GCMRegistrar.getRegistrationId(this));
 		this.md.save();
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		if (item.getItemId() == android.R.id.home) {
+			// Return to the default thing by calling navigation bar event...
+			// TODO id?
+			onNavigationItemSelected(getSupportActionBar().getSelectedNavigationIndex(), 0);
+			return true;
+		}
+		return false;
+	}
+	
+	@Override
+	public void onPortalClicked(SavedPortal portal) {
+		PortalDetailsFragment fragment = new PortalDetailsFragment(portal);
+
+		getSupportFragmentManager().beginTransaction().add(R.id.container, fragment, "PORTALDETAILS_FRAGMENT");
+			
+		getSupportFragmentManager().beginTransaction()
+		.replace(R.id.container, fragment, "PORTALDETAILS_FRAGMENT").commit();		
+		
+		// Make the "up" navigation
+		ActionBar actionBar = getSupportActionBar();
+		actionBar.setDisplayHomeAsUpEnabled(true);
+	}
+
+	@Override
+	public void onPutDone() {
+		// GCM key was successfully put. :)
+		SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
+		Editor editor = settings.edit();
+		editor.putString("gcm_key_sent", GCMRegistrar.getRegistrationId(this));
+		editor.putBoolean("registration_success", true);
+		editor.commit();
+	}
+
+	@Override
+	public void onError(String message) {
+	    AlertDialog ad = new AlertDialog.Builder(this).create();  
+	    ad.setCancelable(false); // This blocks the 'BACK' button  
+	    ad.setMessage("Error communicating with server: " + message);  
+	    ad.setButton("OK", new DialogInterface.OnClickListener() {  
+	        @Override  
+	        public void onClick(DialogInterface dialog, int which) {  
+	            dialog.dismiss();                      
+	        }  
+	    });  
+	    ad.show();  
 	}
 
 }

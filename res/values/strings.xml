@@ -10,5 +10,7 @@
     <string name="apikey">API Key</string>
     <string name="login">Log In</string>
     <string name="dismiss">Dismiss</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
 
 </resources>

@@ -28,8 +28,12 @@ public class Destruction implements Parcelable {
 	public Date time;
 	@DatabaseField
 	public int count;
+	// TODO make this three-state to avoid race conditions: none, displayed, dismissed
+	@DatabaseField
+	public boolean displayed;
 	
 	public Destruction() {
+		this.displayed = false;
 	}
 	
 	public Destruction(Parcel in) {
@@ -43,6 +47,7 @@ public class Destruction implements Parcelable {
 		this.attacker = in.readString();
 		this.time = (Date) in.readSerializable();
 		this.count = in.readInt();
+		this.displayed = (in.readByte() == 1);
 	}
 	
 	@Override
@@ -58,6 +63,7 @@ public class Destruction implements Parcelable {
 		out.writeString(attacker);
 		out.writeSerializable(this.time);
 		out.writeInt(this.count);
+		out.writeByte((byte)(this.displayed? 1 : 0));
 	}
 	
 	public static final Parcelable.Creator<Destruction> CREATOR = new Parcelable.Creator<Destruction>() {

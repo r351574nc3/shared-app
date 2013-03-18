@@ -2,10 +2,10 @@ package de.tinloaf.iris.mobileapp;
 
 import java.util.Date;
 
-import de.tinloaf.iris.mobileapp.data.Destruction;
-import de.tinloaf.iris.mobileapp.data.SavedPortal;
 import android.os.Parcel;
 import android.os.Parcelable;
+import de.tinloaf.iris.mobileapp.data.Destruction;
+import de.tinloaf.iris.mobileapp.data.SavedPortal;
 
 public class NotificationData implements Parcelable {
 	private SavedPortal portal;
@@ -16,6 +16,11 @@ public class NotificationData implements Parcelable {
 	public NotificationData(SavedPortal portal, String destrString, String attacker, Date date) {
 		super();
 		this.portal = portal;
+		
+		if (portal == null) {
+			throw new IllegalArgumentException("portal may not be null");
+		}
+		
 		this.destrString = destrString;
 		this.attacker = attacker;
 		this.date = date;

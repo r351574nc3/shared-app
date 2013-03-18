@@ -31,16 +31,17 @@ import de.tinloaf.iris.mobileapp.data.SavedPortal;
 import de.tinloaf.iris.mobileapp.data.SavedPortalImage;
 
 public class PortalImageLoader implements Runnable {
-	private Handler mHandler;
 	private Context ctx;
 	private ImageView view;
 	
 	private DatabaseHelper databaseHelper;
+	private boolean wantLarge;
 	
-	public PortalImageLoader(DatabaseHelper helper, Context ctx, ImageView view) {
+	public PortalImageLoader(DatabaseHelper helper, Context ctx, ImageView view, boolean wantLarge) {
 		this.databaseHelper = helper;		
 		this.ctx = ctx;
 		this.view = view;
+		this.wantLarge = wantLarge;
 	}
 	
 	private InputStream openHttpConnection(String urlString) throws IOException
@@ -82,7 +83,8 @@ public class PortalImageLoader implements Runnable {
         return bitmap;               
     }
 	
-	public static Bitmap getCachedImage(SavedPortal portal, DatabaseHelper dbHelper, Context ctx) {
+	public static Bitmap getCachedImage(SavedPortal portal, DatabaseHelper dbHelper, Context ctx,
+			boolean wantLarge) {
 		try {
 			Dao<SavedPortalImage, SavedPortal> portalImageDao = dbHelper.getPortalImageDao();
 			
@@ -100,7 +102,8 @@ public class PortalImageLoader implements Runnable {
 			}
 			
 			File myDir = ctx.getExternalFilesDir(null);
-			String fileName = CommonUtilities.getPortalImageCacheDir() + portalImage.imgPath;
+			File sizeDir = null;
+			String fileName = CommonUtilities.getPortalImageCacheDir(wantLarge) + portalImage.imgPath;
 			File portalImageFile = new File(myDir, fileName);
 			if (!portalImageFile.exists()) {
 				portalImageDao.delete(portalImage);
@@ -125,7 +128,11 @@ public class PortalImageLoader implements Runnable {
 		try {
 			Dao<SavedPortalImage, SavedPortal> portalImageDao = this.databaseHelper.getPortalImageDao();
 			
-			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", portal);
+			if (portal == null) {
+				throw new IllegalArgumentException("Cannot cache for null portal!");
+			}
+			
+			List<SavedPortalImage> portalImageList = portalImageDao.queryForEq("portal_id", portal.id);
 			if (portalImageList.size() > 0) {
 				return;
 			}
@@ -144,16 +151,29 @@ public class PortalImageLoader implements Runnable {
 				portalImage.portal = portal;
 				portalImage.imgPath = UUID.randomUUID().toString();
 				portalImage.lastUsed = new Date();
+
+				// FIXME a problem arises here if one portals is being loaded twice in parallel...
 				portalImageDao.create(portalImage);
 			}
 			
 			File myDir = this.ctx.getExternalFilesDir(null);
-			File cacheDir = new File(myDir, CommonUtilities.getPortalImageCacheDir());
-			cacheDir.mkdirs();
-			File portalImageFile = new File(cacheDir, portalImage.imgPath);
+			
+			
+			File largeCacheDir = new File(myDir, CommonUtilities.getPortalImageCacheDir(true));
+			File smallCacheDir = new File(myDir, CommonUtilities.getPortalImageCacheDir(false));
+			largeCacheDir.mkdirs();
+			smallCacheDir.mkdirs();
+			
+			// Small picture
+			File portalImageFile = new File(smallCacheDir, portalImage.imgPath);
 			Log.v("PIL", "Caching to " + portalImageFile.getAbsolutePath());
 			FileOutputStream out = new FileOutputStream(portalImageFile);
-			picture.compress(Bitmap.CompressFormat.JPEG, 90, out);
+			this.scaleBitmap(picture, false).compress(Bitmap.CompressFormat.JPEG, 90, out);
+
+			// Large picture
+			portalImageFile = new File(largeCacheDir, portalImage.imgPath);
+			out = new FileOutputStream(portalImageFile);
+			this.scaleBitmap(picture, true).compress(Bitmap.CompressFormat.JPEG, 90, out);			
 		} catch (SQLException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -164,14 +184,22 @@ public class PortalImageLoader implements Runnable {
 		}	
 	}
 	
+	private Bitmap scaleBitmap(Bitmap bitmap, boolean large) {
+		if (large) {
+			return Bitmap.createScaledBitmap(bitmap, CommonUtilities.PORTALIMAGE_LARGE_X, 
+					CommonUtilities.PORTALIMAGE_LARGE_Y, false);
+		} else {
+			return Bitmap.createScaledBitmap(bitmap, CommonUtilities.PORTALIMAGE_SMALL_X, 
+					CommonUtilities.PORTALIMAGE_SMALL_Y, false);			
+		}
+	}
+	
 	private Bitmap loadBitmap(SavedPortal portal) {
 		try {
 			Log.v("PIL", "Getting image from " + portal.imgUrl);
 			Bitmap picture = this.downloadImage(portal.imgUrl);
-			// TODO do the scaling after caching?
-			Bitmap scaledPicture = Bitmap.createScaledBitmap(picture, 110, 110, false);
 			
-			return scaledPicture;
+			return picture;
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
@@ -186,14 +214,15 @@ public class PortalImageLoader implements Runnable {
 		try {
 			// First, check if we have that portal cached.
 			
-			ret = PortalImageLoader.getCachedImage(portal, this.databaseHelper, this.ctx);
+			ret = PortalImageLoader.getCachedImage(portal, this.databaseHelper, this.ctx, this.wantLarge);
 			if (ret == null) {
-				Log.v("PIL", "Downloading for " + portal.title +  "...");
 				ret = loadBitmap(portal);
 				
 				// Now, cache it!
 				cachePicture(ret, portal);
-				// TODO Cache cleanup?
+				
+				// And scale down .. TODO this is done twice...
+				ret = this.scaleBitmap(ret, this.wantLarge);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

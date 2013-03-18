@@ -51,15 +51,25 @@ public class CleanupService extends Service {
 		}
 		
 		File myDir = this.getExternalFilesDir(null);
-		String fileName = CommonUtilities.getPortalImageCacheDir() + portalImage.imgPath;
+		
+		// small
+		String fileName = CommonUtilities.getPortalImageCacheDir(true) + portalImage.imgPath;
 		File portalImageFile = new File(myDir, fileName);
 		if (!portalImageFile.exists()) {
 			Log.v("CLEANUP", fileName + " not found");
-			return true; // not there...
+		} else {
+			portalImageFile.delete();
 		}
 		
-		Log.v("CLEANUP", "Deleting " + fileName);		
-		portalImageFile.delete();
+		// large
+		fileName = CommonUtilities.getPortalImageCacheDir(false) + portalImage.imgPath;
+		portalImageFile = new File(myDir, fileName);
+		if (!portalImageFile.exists()) {
+			Log.v("CLEANUP", fileName + " not found");
+		} else {
+			portalImageFile.delete();
+		}
+		
 		return true;
 	}
 	

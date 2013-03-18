@@ -26,7 +26,7 @@ public class SavedPortal implements Parcelable {
 	public String imgUrl;
 	
 	@DatabaseField 
-	public Integer version;
+	public Long stamp;
 	
 	public SavedPortal() {
 	}
@@ -44,6 +44,7 @@ public class SavedPortal implements Parcelable {
 		this.lat = in.readDouble();
 		this.lng = in.readDouble();
 		this.imgUrl = in.readString();
+		this.stamp = in.readLong();
 	}
 	
 	@Override
@@ -61,6 +62,7 @@ public class SavedPortal implements Parcelable {
 		out.writeDouble(this.lat);
 		out.writeDouble(this.lng);
 		out.writeString(this.imgUrl);
+		out.writeLong(this.stamp);
 	}
 	
 	public static final Parcelable.Creator<SavedPortal> CREATOR = new Parcelable.Creator<SavedPortal>() {

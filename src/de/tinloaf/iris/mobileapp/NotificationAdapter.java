@@ -2,8 +2,12 @@ package de.tinloaf.iris.mobileapp;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 import android.app.Activity;
+import android.graphics.Typeface;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -46,25 +50,40 @@ public class NotificationAdapter extends ArrayAdapter<NotificationData> {
             holder.txtDate = (TextView)row.findViewById(R.id.txtDate);
             //holder.txtAttacker = (TextView)row.findViewById(R.id.txtAttacker);
             
-            row.setTag(holder);
+            row.setTag(R.id.tag_holder, holder);
         }
         else
         {
-            holder = (NotificationHolder)row.getTag();
+            holder = (NotificationHolder)row.getTag(R.id.tag_holder);
         }
        
         
         NotificationData notification = data.get(position);
-        holder.txtTitle.setText(notification.getPortalTitle());
+        if (notification.getPortalTitle() != null) {
+            holder.txtTitle.setText(notification.getPortalTitle());        	
+        	holder.txtTitle.setTypeface(null, 0);
+        } else {
+        	holder.txtTitle.setText("(Untitled)");
+        	holder.txtTitle.setTypeface(null, Typeface.ITALIC);
+        }
         holder.txtDestr.setText(notification.getDestrString());
+        
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
+        cal.setTime(notification.getDate());
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
-        holder.txtDate.setText(sdf.format(notification.getDate()));
-        holder.imgIcon.setTag(notification.getPortal());
+        sdf.setTimeZone(TimeZone.getTimeZone("America/Phoenix"));
+        holder.txtDate.setText(sdf.format(cal.getTime()));
+        
+        
+        holder.imgIcon.setTag(notification.getPortal()); // The PortalImageLoader needs this
+        row.setTag(R.id.tag_portal, notification.getPortal()); // For opening the details view
         //holder.txtAttacker.setText(notification.getAttacker());
         //holder.imgIcon.setImageResource(R.drawable.ic_launcher);
         
         // Tell the worker thread to get that picture here.
-        new Thread (new PortalImageLoader(this.dbHelper, this.getContext(), holder.imgIcon)).start();
+        if (notification.getPortal().imgUrl != null) {
+        	new Thread (new PortalImageLoader(this.dbHelper, this.getContext(), holder.imgIcon, false)).start();
+        }
         
         return row;
     }
