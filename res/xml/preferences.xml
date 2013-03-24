@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    
+    <PreferenceCategory android:title="Authentication"><EditTextPreference android:key="pref_username" android:title="@string/username" android:defaultValue="" /><EditTextPreference android:key="pref_apikey" android:title="@string/apikey" android:defaultValue="" /></PreferenceCategory>
+    <PreferenceCategory android:title="Caching">
+        <EditTextPreference android:title="Destruction Cache Days" 
+            android:numeric="integer" android:key="pref_cache_destructions"/>
+        <EditTextPreference android:title="Portal Image Cache Days" 
+            android:numeric="integer" android:key="pref_cache_portalimages"/>
+        </PreferenceCategory>
+    <PreferenceCategory android:title="Notifications">
+        <CheckBoxPreference android:key="pref_notify_sound" android:title="Sound" android:defaultValue="true"/>
+        <CheckBoxPreference android:key="pref_notify_vibrate" android:title="Vibrate" android:defaultValue="true"/>
+        <CheckBoxPreference android:key="pref_notify_lights" android:title="LED" android:defaultValue="true"/>
+    </PreferenceCategory>
+    
+</PreferenceScreen>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="de.tinloaf.iris.mobileapp"
+    android:versionCode="1"
+    android:versionName="0.1 BETA" >
+
+    <uses-sdk
+        android:minSdkVersion="8"
+        android:targetSdkVersion="17" />
+    <uses-permission android:name="de.tinloaf.iris.mobileapp.permission.C2D_MESSAGE"/>
+    <permission android:protectionLevel="signature" android:name="de.tinloaf.iris.mobileapp.permission.C2D_MESSAGE"></permission>
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Sherlock.__Theme.DarkActionBar">
+        <activity
+            android:name="de.tinloaf.iris.mobileapp.MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        
+        <service android:name=".GCMIntentService" />
+        
+	    <receiver android:name="com.google.android.gcm.GCMBroadcastReceiver" android:permission="com.google.android.c2dm.permission.SEND" >
+  			<intent-filter>
+    			<action android:name="com.google.android.c2dm.intent.RECEIVE" />
+ 	   			<action android:name="com.google.android.c2dm.intent.REGISTRATION" />
+    			<category android:name="de.tinloaf.iris.mobileapp" />
+	  		</intent-filter>
+		</receiver>
+	    <activity android:name="SettingsActivity" android:label="@string/app_name"></activity>
+	    <service android:name=".data.CleanupService"></service>
+	    <receiver android:name="NotificationDismissedReceiver">
+	        <intent-filter>
+	            <action android:name="de.tinloaf.iris.mobileapp.broadcasts.CLEARNOTIFICATION"/>
+	        </intent-filter>
+	    </receiver>
+		    
+    </application>
+    
+
+</manifest>
