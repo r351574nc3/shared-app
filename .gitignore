@@ -8,6 +8,9 @@
 # Java class files
 *.class
 
+# dependency sources
+src/android
+
 # generated files
 bin/
 gen/
